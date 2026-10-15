@@ -15,7 +15,7 @@ describe("Calculate API Route Handler", () => {
     expect(data.error).toBeDefined();
   });
 
-  it("successfully returns calculation result with 2-inch default allowances and middleBoardCount", async () => {
+  it("successfully returns calculation result with 2-inch default allowances applied to both sides and middleBoardCount", async () => {
     const req = new NextRequest("http://localhost:3000/api/calculate", {
       method: "POST",
       body: JSON.stringify({
@@ -31,9 +31,9 @@ describe("Calculate API Route Handler", () => {
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data.result).toBeDefined();
-    // 46 + 2 = 48, 38 + 2 = 40
-    expect(data.result.palletDimensions.length).toBe(48);
-    expect(data.result.palletDimensions.width).toBe(40);
+    // 46 + (2 * 2) = 50, 38 + (2 * 2) = 42
+    expect(data.result.palletDimensions.length).toBe(50);
+    expect(data.result.palletDimensions.width).toBe(42);
     // 4 outer (2 left + 2 right) + 2 middle = 6
     expect(data.result.stringerCount).toBe(6);
     expect(data.result.middleBoardCount).toBe(2);
@@ -63,8 +63,9 @@ describe("Calculate API Route Handler", () => {
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data.result).toBeDefined();
-    expect(data.result.palletDimensions.length).toBe(50);
-    expect(data.result.palletDimensions.width).toBe(42);
+    // 46 + (2 * 4) = 54, 38 + (2 * 4) = 46
+    expect(data.result.palletDimensions.length).toBe(54);
+    expect(data.result.palletDimensions.width).toBe(46);
     expect(data.result.stringerCount).toBe(3);
   });
 });

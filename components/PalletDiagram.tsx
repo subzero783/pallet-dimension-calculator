@@ -56,6 +56,43 @@ export default function PalletDiagram({
   const palletTotalH = Math.round((bottomDeckThickness + middleBoardHeight + topDeckThickness) * 10) / 10;
   const cumulativeStackHeight = Math.round((palletTotalH + productHeight) * 10) / 10;
 
+  // Clearance allowances per side (inches)
+  const clearanceLength = Math.max(0, Math.round(((palletLength - productLength) / 2) * 10) / 10);
+  const clearanceWidth = Math.max(0, Math.round(((palletWidth - productWidth) / 2) * 10) / 10);
+
+  // Top CAD Blueprint scaling and positioning:
+  // Pallet spans along X: 150 to 650 (500px length), Y: 70 to 410 (340px width)
+  const topScaleX = 500 / Math.max(1, palletLength);
+  const topScaleY = 340 / Math.max(1, palletWidth);
+  const topProdClearanceX = clearanceLength * topScaleX;
+  const topProdClearanceY = clearanceWidth * topScaleY;
+  const topProdX = 150 + topProdClearanceX;
+  const topProdW = Math.max(20, 500 - 2 * topProdClearanceX);
+  const topProdY = 70 + topProdClearanceY;
+  const topProdH = Math.max(20, 340 - 2 * topProdClearanceY);
+
+  // Elevation Side scaling and positioning:
+  // Pallet width spans along X: 140 to 660 (520px)
+  const sideScaleW = 520 / Math.max(1, palletWidth);
+  const sideProdClearance = clearanceWidth * sideScaleW;
+  const sideProdX = 140 + sideProdClearance;
+  const sideProdW = Math.max(40, 520 - 2 * sideProdClearance);
+
+  // 3D Isometric product placement based on exact proportional margins:
+  const isoFractionW = Math.min(0.96, Math.max(0.2, productWidth / Math.max(1, palletWidth)));
+  const isoFractionL = Math.min(0.96, Math.max(0.2, productLength / Math.max(1, palletLength)));
+  const isoMarginW = (420 * (1 - isoFractionW)) / 2;
+  const isoMarginL = (1 - isoFractionL) / 2;
+  const isoX1 = Math.round(180 + isoMarginW + isoMarginL * 82);
+  const isoY1 = Math.round(264 - isoMarginL * 94);
+  const isoX2 = Math.round(600 - isoMarginW + isoMarginL * 82);
+  const isoY2 = isoY1;
+  const isoX3 = Math.round(600 - isoMarginW + (1 - isoMarginL) * 82);
+  const isoY3 = Math.round(264 - (1 - isoMarginL) * 94);
+  const isoX4 = Math.round(180 + isoMarginW + (1 - isoMarginL) * 82);
+  const isoY4 = isoY3;
+  const isoH = 130;
+
   // 3D Isometric runner positions:
   // When middleCount === 1: 3 pieces (left, center, right)
   // When middleCount === 2: 6 pieces (2 left touching, 2 middle touching, 2 right touching)
@@ -284,37 +321,57 @@ export default function PalletDiagram({
               );
             })}
 
-            {/* 4. CAD PRODUCT */}
+            {/* 4. CAD PRODUCT (Accurately proportioned to clearances) */}
             {showProduct && (
               <g className="cad-product-group" opacity="0.95">
+                {/* Bottom Base */}
                 <polygon
-                  points="230,240 570,240 645,155 305,155"
+                  points={`${isoX1},${isoY1} ${isoX2},${isoY2} ${isoX3},${isoY3} ${isoX4},${isoY4}`}
                   fill="none"
                   stroke="#06b6d4"
                   strokeWidth="1.5"
                   strokeDasharray="4 3"
                 />
+                {/* Top Face */}
                 <polygon
-                  points="230,110 570,110 645,25 305,25"
+                  points={`${isoX1},${isoY1 - isoH} ${isoX2},${isoY2 - isoH} ${isoX3},${isoY3 - isoH} ${isoX4},${isoY4 - isoH}`}
                   fill="url(#productGlass)"
                   stroke="#38bdf8"
                   strokeWidth="2"
                 />
+                {/* Front Face */}
                 <polygon
-                  points="230,240 570,240 570,110 230,110"
+                  points={`${isoX1},${isoY1} ${isoX2},${isoY2} ${isoX2},${isoY2 - isoH} ${isoX1},${isoY1 - isoH}`}
                   fill="rgba(6, 182, 212, 0.2)"
                   stroke="#38bdf8"
                   strokeWidth="1.5"
                 />
+                {/* Right Side Face */}
                 <polygon
-                  points="570,240 645,155 645,25 570,110"
+                  points={`${isoX2},${isoY2} ${isoX3},${isoY3} ${isoX3},${isoY3 - isoH} ${isoX2},${isoY2 - isoH}`}
                   fill="rgba(2, 132, 199, 0.3)"
                   stroke="#38bdf8"
                   strokeWidth="1.5"
                 />
 
-                <rect x="320" y="145" width="200" height="34" rx="5" fill="rgba(15, 23, 42, 0.9)" stroke="#06b6d4" strokeWidth="1" />
-                <text x="420" y="167" fill="#ffffff" fontSize="11" fontWeight="700" textAnchor="middle">
+                <rect
+                  x={(isoX1 + isoX2) / 2 - 100}
+                  y={(isoY1 + isoY1 - isoH) / 2 - 17}
+                  width="200"
+                  height="34"
+                  rx="5"
+                  fill="rgba(15, 23, 42, 0.9)"
+                  stroke="#06b6d4"
+                  strokeWidth="1"
+                />
+                <text
+                  x={(isoX1 + isoX2) / 2}
+                  y={(isoY1 + isoY1 - isoH) / 2 + 5}
+                  fill="#ffffff"
+                  fontSize="11"
+                  fontWeight="700"
+                  textAnchor="middle"
+                >
                   CAD PAYLOAD: {productWeight} lbs
                 </text>
               </g>
@@ -363,7 +420,7 @@ export default function PalletDiagram({
         )}
 
         {/* ========================================================
-            2. TOP CAD BLUEPRINT VIEW (ACCURATE FLUSH / ZERO-GAP)
+            2. TOP CAD BLUEPRINT VIEW (ACCURATE FLUSH & CLEARANCES)
            ======================================================== */}
         {viewMode === "top" && (
           <svg viewBox="0 0 800 500" className="cad-svg">
@@ -497,22 +554,38 @@ export default function PalletDiagram({
               });
             })()}
 
-            {/* CAD Product Outline */}
+            {/* CAD Product Outline (Takes into account Width and Length Allowance on all sides) */}
             {showProduct && (
               <g className="product-blueprint-outline">
                 <rect
-                  x="200"
-                  y="110"
-                  width="400"
-                  height="260"
-                  rx="4"
+                  x={topProdX}
+                  y={topProdY}
+                  width={topProdW}
+                  height={topProdH}
+                  rx="3"
                   fill="rgba(6, 182, 212, 0.12)"
                   stroke="#06b6d4"
                   strokeWidth="2.5"
                   strokeDasharray="8 5"
                 />
-                <rect x="300" y="225" width="200" height="30" rx="4" fill="rgba(15, 23, 42, 0.9)" stroke="#06b6d4" strokeWidth="1" />
-                <text x="400" y="244" fill="#38bdf8" fontSize="11" fontWeight="bold" textAnchor="middle">
+                <rect
+                  x={topProdX + topProdW / 2 - 110}
+                  y={topProdY + topProdH / 2 - 15}
+                  width="220"
+                  height="30"
+                  rx="4"
+                  fill="rgba(15, 23, 42, 0.9)"
+                  stroke="#06b6d4"
+                  strokeWidth="1"
+                />
+                <text
+                  x={topProdX + topProdW / 2}
+                  y={topProdY + topProdH / 2 + 5}
+                  fill="#38bdf8"
+                  fontSize="11"
+                  fontWeight="bold"
+                  textAnchor="middle"
+                >
                   CAD Product: {productLength}" L × {productWidth}" W
                 </text>
               </g>
@@ -523,7 +596,7 @@ export default function PalletDiagram({
               Deckboard Gap: {actualSpacing}" {actualSpacing === 0 ? "(Omitted / Flush Continuous)" : "Uniform Spacing"} • {totalMiddleAreaRunners} Middle Wood Pieces ({middleCount === 2 ? "Doubled Side-by-Side Flush" : "Standard"})
             </text>
             <text x="400" y="468" fill="#94a3b8" fontSize="10.5" textAnchor="middle">
-              Overall Pallet Footprint: {palletLength}" Length × {palletWidth}" Width × {palletTotalH}" Height
+              Overall Pallet: {palletLength}" L × {palletWidth}" W × {palletTotalH}" H • Clearance: +{clearanceLength}" Length / +{clearanceWidth}" Width (Per Side)
             </text>
           </svg>
         )}
@@ -588,14 +661,14 @@ export default function PalletDiagram({
               Top Boards Surface — 0.75" Thickness ({topDeckboardCount} Boards Evenly Distributed)
             </text>
 
-            {/* 4. PRODUCT SITTING ON TOP */}
+            {/* 4. PRODUCT SITTING ON TOP (Accurate proportional clearance) */}
             {showProduct && (
               <g>
                 <rect
-                  x="180"
-                  y="120"
-                  width="440"
-                  height="138"
+                  x={sideProdX}
+                  y={120}
+                  width={sideProdW}
+                  height={138}
                   rx="4"
                   fill="rgba(6, 182, 212, 0.2)"
                   stroke="#38bdf8"
@@ -605,7 +678,7 @@ export default function PalletDiagram({
                   CAD Product: {productHeight}" H • {productWeight} lbs
                 </text>
                 <text x="400" y="202" fill="#38bdf8" fontSize="11" textAnchor="middle">
-                  Payload Enclosure Footprint
+                  Payload Enclosure Footprint • +{clearanceWidth}" Clearance (Per Side)
                 </text>
               </g>
             )}

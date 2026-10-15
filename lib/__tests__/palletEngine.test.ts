@@ -54,8 +54,8 @@ describe("Pallet Engine Calculations", () => {
     });
   });
 
-  describe("calculatePallet - Complete Engine with 2-inch defaults and Middle Wood Pieces", () => {
-    it("calculates standard pallet with new 2-inch default allowances and 1 middle piece", () => {
+  describe("calculatePallet - Complete Engine with 2-inch allowances on both sides", () => {
+    it("calculates standard pallet with 2-inch default allowances per side (+4 total) and 1 middle piece", () => {
       const result = calculatePallet({
         productLength: 46,
         productWidth: 38,
@@ -64,9 +64,9 @@ describe("Pallet Engine Calculations", () => {
         middleBoardCount: 1,
       });
 
-      // 46 + 2 = 48, 38 + 2 = 40
-      expect(result.palletDimensions.length).toBe(48);
-      expect(result.palletDimensions.width).toBe(40);
+      // 46 + (2 * 2) = 50, 38 + (2 * 2) = 42
+      expect(result.palletDimensions.length).toBe(50);
+      expect(result.palletDimensions.width).toBe(42);
       // Pallet height = 0.75 + 3.5 + 0.75 = 5.0"
       expect(result.palletDimensions.height).toBe(5);
       // 2 outer runners + 1 middle wood piece = 3 total stringers
@@ -107,8 +107,9 @@ describe("Pallet Engine Calculations", () => {
         deckboardNominal: "1x6",
       });
 
-      expect(result.palletDimensions.length).toBe(60);
-      expect(result.palletDimensions.width).toBe(46);
+      // 58 + (2 * 2) = 62, 44 + (2 * 2) = 48
+      expect(result.palletDimensions.length).toBe(62);
+      expect(result.palletDimensions.width).toBe(48);
       // 4 outer runners (2 left + 2 right) + 2 middle wood pieces = 6 total runners
       expect(result.stringerCount).toBe(6);
       expect(result.middleBoardCount).toBe(2);
@@ -117,7 +118,7 @@ describe("Pallet Engine Calculations", () => {
       expect(runnerItem?.quantity).toBe(6);
     });
 
-    it("supports custom allowances and omitted gap", () => {
+    it("supports custom allowances on both sides and omitted gap", () => {
       const result = calculatePallet({
         productLength: 40,
         productWidth: 30,
@@ -128,8 +129,9 @@ describe("Pallet Engine Calculations", () => {
         boardGap: 0,
       });
 
-      expect(result.palletDimensions.length).toBe(44);
-      expect(result.palletDimensions.width).toBe(34);
+      // 40 + (2 * 4) = 48, 30 + (2 * 4) = 38
+      expect(result.palletDimensions.length).toBe(48);
+      expect(result.palletDimensions.width).toBe(38);
       expect(result.actualSpacing).toBe(0);
     });
   });

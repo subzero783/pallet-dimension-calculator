@@ -154,8 +154,11 @@ export function calculatePallet(input: PalletInputParams): ICalculationResult {
   const validatedMiddleCount: 1 | 2 = middleBoardCount === 2 ? 2 : 1;
 
   // 1. Overall Pallet Dimensions
-  const palletLength = Math.max(12, Math.round((productLength + lengthAllowance) * 10) / 10);
-  const palletWidth = Math.max(12, Math.round((productWidth + widthAllowance) * 10) / 10);
+  // Length and Width allowances are applied to both sides of the pallet:
+  // Pallet Length = Product Length + (2 * Length Allowance)
+  // Pallet Width = Product Width + (2 * Width Allowance)
+  const palletLength = Math.max(12, Math.round((productLength + 2 * lengthAllowance) * 10) / 10);
+  const palletWidth = Math.max(12, Math.round((productWidth + 2 * widthAllowance) * 10) / 10);
 
   const stringerSpec = LUMBER_SPECS[stringerNominal] || LUMBER_SPECS["2x4"];
   const deckboardSpec = LUMBER_SPECS[deckboardNominal] || LUMBER_SPECS["1x4"];
