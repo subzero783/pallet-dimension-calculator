@@ -118,15 +118,22 @@ export default function CutListTable({
           </thead>
           <tbody>
             {cutList.map((item, idx) => (
-              <tr key={idx} className={item.name.includes("Lead") ? "lead-row" : ""}>
+              <tr key={idx} className={item.name.includes("Middle") ? "middle-row" : ""}>
                 <td>
                   <div className="item-name-cell">
                     <span className="item-name">{item.name}</span>
-                    {item.name.includes("Lead") && (
-                      <span className="lead-tag">Lead Board</span>
+                    {item.name.includes("Top") && (
+                      <span className="deck-tag">Uniform Top Deck</span>
                     )}
                     {item.name.includes("Middle") && (
-                      <span className="middle-tag">{item.quantity} Center Piece{item.quantity > 1 ? "s" : ""}</span>
+                      <span className="middle-tag">
+                        {item.quantity === 6
+                          ? "6 Doubled Pieces (2 Left, 2 Mid, 2 Right)"
+                          : "3 Support Pieces (1 Left, 1 Mid, 1 Right)"}
+                      </span>
+                    )}
+                    {item.name.includes("Bottom") && (
+                      <span className="base-tag">Uniform Base Deck</span>
                     )}
                   </div>
                 </td>
@@ -240,8 +247,8 @@ export default function CutListTable({
         .cut-table tr:hover {
           background: rgba(255, 255, 255, 0.02);
         }
-        .lead-row {
-          background: rgba(245, 158, 11, 0.03);
+        .middle-row {
+          background: rgba(6, 182, 212, 0.03);
         }
         .item-name-cell {
           display: flex;
@@ -252,13 +259,21 @@ export default function CutListTable({
           font-weight: 600;
           color: #ffffff;
         }
-        .lead-tag {
+        .deck-tag {
           font-size: 0.65rem;
           background: rgba(245, 158, 11, 0.15);
           color: #fef08a;
           padding: 2px 6px;
           border-radius: 4px;
           border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+        .base-tag {
+          font-size: 0.65rem;
+          background: rgba(180, 83, 9, 0.2);
+          color: #fdba74;
+          padding: 2px 6px;
+          border-radius: 4px;
+          border: 1px solid rgba(180, 83, 9, 0.35);
         }
         .middle-tag {
           font-size: 0.65rem;
@@ -292,7 +307,7 @@ export default function CutListTable({
         .text-amber { color: var(--accent-amber); }
         .text-emerald { color: var(--accent-emerald); }
         .metrics-grid {
-          display: grid;
+          display: none;
           grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
           gap: 12px;
           margin-top: 8px;

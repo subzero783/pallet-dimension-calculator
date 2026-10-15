@@ -377,12 +377,12 @@ export default function PalletCalculator({ isCompanyPage = false }: PalletCalcul
               </div>
             </div>
 
-            {/* Clearance Allowances (Default 4" Length & Width) */}
+            {/* Clearance Allowances (Default 2" Length & Width) */}
             <div className="config-grid mt-2">
               <div className="form-group">
                 <div className="label-with-val">
                   <label className="form-label">Length Allowance</label>
-                  <span className="hint-tag">Default 4"</span>
+                  <span className="hint-tag">Default 2"</span>
                 </div>
                 <div className="input-unit-wrapper">
                   <input
@@ -399,7 +399,7 @@ export default function PalletCalculator({ isCompanyPage = false }: PalletCalcul
               <div className="form-group">
                 <div className="label-with-val">
                   <label className="form-label">Width Allowance</label>
-                  <span className="hint-tag">Default 4"</span>
+                  <span className="hint-tag">Default 2"</span>
                 </div>
                 <div className="input-unit-wrapper">
                   <input

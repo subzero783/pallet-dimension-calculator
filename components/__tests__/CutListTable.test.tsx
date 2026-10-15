@@ -29,10 +29,9 @@ describe("CutListTable Component", () => {
     );
 
     expect(screen.getByText(/Itemized Wood Cut List/i)).toBeInTheDocument();
-    expect(screen.getByText("Top Lead Boards")).toBeInTheDocument();
-    expect(screen.getByText("Outer Runners/Stringers")).toBeInTheDocument();
-    expect(screen.getByText("Middle Wood Pieces")).toBeInTheDocument();
-    expect(screen.getByText("Bottom Lead Boards")).toBeInTheDocument();
+    expect(screen.getByText("Top Boards")).toBeInTheDocument();
+    expect(screen.getByText("Middle Wood Pieces / Runners")).toBeInTheDocument();
+    expect(screen.getByText("Bottom Boards")).toBeInTheDocument();
     expect(screen.getByText(/Total Board Feet/i)).toBeInTheDocument();
     expect(screen.getByText(/Estimated Tare Weight/i)).toBeInTheDocument();
     expect(screen.getByText(/Fasteners Required/i)).toBeInTheDocument();

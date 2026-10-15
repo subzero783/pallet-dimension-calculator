@@ -42,8 +42,8 @@ const initialDimensions = {
 
 const initialPalletConfig: CalculatorState["palletConfig"] = {
   palletStyle: "2-Way Stringer (Flush)",
-  lengthAllowance: 4.0,
-  widthAllowance: 4.0,
+  lengthAllowance: 2.0,
+  widthAllowance: 2.0,
   deckboardNominal: "1x4",
   stringerNominal: "2x4",
   targetMaxGap: 3.0,
