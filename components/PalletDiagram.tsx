@@ -83,15 +83,15 @@ export default function PalletDiagram({
   const isoFractionL = Math.min(0.96, Math.max(0.2, productLength / Math.max(1, palletLength)));
   const isoMarginW = (420 * (1 - isoFractionW)) / 2;
   const isoMarginL = (1 - isoFractionL) / 2;
-  const isoX1 = Math.round(180 + isoMarginW + isoMarginL * 82);
-  const isoY1 = Math.round(264 - isoMarginL * 94);
-  const isoX2 = Math.round(600 - isoMarginW + isoMarginL * 82);
+  const isoX1 = Math.round(180 + isoMarginW + isoMarginL * 92);
+  const isoY1 = Math.round(264 - isoMarginL * 100);
+  const isoX2 = Math.round(600 - isoMarginW + isoMarginL * 92);
   const isoY2 = isoY1;
-  const isoX3 = Math.round(600 - isoMarginW + (1 - isoMarginL) * 82);
-  const isoY3 = Math.round(264 - (1 - isoMarginL) * 94);
-  const isoX4 = Math.round(180 + isoMarginW + (1 - isoMarginL) * 82);
+  const isoX3 = Math.round(600 - isoMarginW + (1 - isoMarginL) * 92);
+  const isoY3 = Math.round(264 - (1 - isoMarginL) * 100);
+  const isoX4 = Math.round(180 + isoMarginW + (1 - isoMarginL) * 92);
   const isoY4 = isoY3;
-  const isoH = 130;
+  const isoH = Math.min(160, Math.max(70, Math.round(productHeight * 3.2)));
 
   // 3D Isometric runner positions:
   // When middleCount === 1: 3 pieces (left, center, right)
@@ -99,18 +99,63 @@ export default function PalletDiagram({
   const isoRunners =
     middleCount === 2
       ? [
-          { xOffset: 198, isMiddle: false, label: "Left Outer (1/2)" },
-          { xOffset: 220, isMiddle: false, label: "Left Outer (2/2)" },
-          { xOffset: 388, isMiddle: true, label: "Middle Wood (1/2)" },
-          { xOffset: 410, isMiddle: true, label: "Middle Wood (2/2)" },
-          { xOffset: 578, isMiddle: false, label: "Right Outer (1/2)" },
-          { xOffset: 600, isMiddle: false, label: "Right Outer (2/2)" },
+          { xLeft: 180, xRight: 200, isMiddle: false, label: "Left Outer (1/2)" },
+          { xLeft: 200, xRight: 220, isMiddle: false, label: "Left Outer (2/2)" },
+          { xLeft: 370, xRight: 390, isMiddle: true, label: "Middle Wood (1/2)" },
+          { xLeft: 390, xRight: 410, isMiddle: true, label: "Middle Wood (2/2)" },
+          { xLeft: 560, xRight: 580, isMiddle: false, label: "Right Outer (1/2)" },
+          { xLeft: 580, xRight: 600, isMiddle: false, label: "Right Outer (2/2)" },
         ]
       : [
-          { xOffset: 210, isMiddle: false, label: "Left Outer Runner" },
-          { xOffset: 400, isMiddle: true, label: "Middle Wood Piece" },
-          { xOffset: 590, isMiddle: false, label: "Right Outer Runner" },
+          { xLeft: 180, xRight: 200, isMiddle: false, label: "Left Outer Runner" },
+          { xLeft: 380, xRight: 400, isMiddle: true, label: "Middle Wood Piece" },
+          { xLeft: 580, xRight: 600, isMiddle: false, label: "Right Outer Runner" },
         ];
+
+  // Proportional layout of top and bottom deckboards along pallet length in 3D:
+  const boardNominalWidth = deckboardNominal === "1x6" ? 5.5 : 3.5;
+
+  const numTop = Math.max(1, topDeckboardCount);
+  const gapTop =
+    numTop > 1
+      ? Math.max(0, (palletLength - numTop * boardNominalWidth) / (numTop - 1))
+      : 0;
+
+  const topBoards3D = Array.from({ length: numTop }).map((_, i) => {
+    let startInch = i * (boardNominalWidth + gapTop);
+    let endInch = startInch + boardNominalWidth;
+    if (numTop === 1) {
+      startInch = 0;
+      endInch = palletLength;
+    } else if (i === numTop - 1) {
+      endInch = palletLength;
+      startInch = Math.max(0, palletLength - boardNominalWidth);
+    }
+    const t0 = Math.min(1, Math.max(0, startInch / Math.max(1, palletLength)));
+    const t1 = Math.min(1, Math.max(t0 + 0.005, endInch / Math.max(1, palletLength)));
+    return { index: i, t0, t1 };
+  });
+
+  const numBot = Math.max(1, bottomDeckboardCount);
+  const gapBot =
+    numBot > 1
+      ? Math.max(0, (palletLength - numBot * boardNominalWidth) / (numBot - 1))
+      : 0;
+
+  const botBoards3D = Array.from({ length: numBot }).map((_, i) => {
+    let startInch = i * (boardNominalWidth + gapBot);
+    let endInch = startInch + boardNominalWidth;
+    if (numBot === 1) {
+      startInch = 0;
+      endInch = palletLength;
+    } else if (i === numBot - 1) {
+      endInch = palletLength;
+      startInch = Math.max(0, palletLength - boardNominalWidth);
+    }
+    const t0 = Math.min(1, Math.max(0, startInch / Math.max(1, palletLength)));
+    const t1 = Math.min(1, Math.max(t0 + 0.005, endInch / Math.max(1, palletLength)));
+    return { index: i, t0, t1 };
+  });
 
   // Elevation Side runner blocks:
   // When middleCount === 1: 3 blocks (x=160, 384, 608)
@@ -234,26 +279,40 @@ export default function PalletDiagram({
             </defs>
 
             {/* Base Floor Shadow */}
-            <ellipse cx="400" cy="420" rx="280" ry="50" fill="rgba(0,0,0,0.5)" filter="blur(16px)" />
+            <ellipse cx="430" cy="305" rx="270" ry="42" fill="rgba(0,0,0,0.55)" filter="blur(16px)" />
 
-            {/* 1. BOTTOM BOARDS (Visibly rendered at base of pallet underneath runners) */}
-            {Array.from({ length: Math.min(6, bottomDeckboardCount) }).map((_, i) => {
-              const count = Math.min(6, bottomDeckboardCount);
-              const bY = 320 - i * (130 / Math.max(1, count - 1));
-              const startX = 180 + i * (110 / Math.max(1, count - 1));
-              const endX = 595 + i * (45 / Math.max(1, count - 1));
+            {/* 1. BOTTOM BOARDS (Evenly spaced across base, supporting runners from underneath) */}
+            {[...botBoards3D].reverse().map((b) => {
+              const xL0 = Math.round(180 + b.t0 * 92);
+              const xR0 = Math.round(600 + b.t0 * 92);
+              const xL1 = Math.round(180 + b.t1 * 92);
+              const xR1 = Math.round(600 + b.t1 * 92);
+
+              const yTop0 = Math.round(316 - b.t0 * 100);
+              const yBot0 = Math.round(324 - b.t0 * 100);
+              const yTop1 = Math.round(316 - b.t1 * 100);
+              const yBot1 = Math.round(324 - b.t1 * 100);
 
               return (
-                <g key={`bot-board-${i}`}>
+                <g key={`bot-board-${b.index}`} className="bottom-board-group">
+                  {/* Top Face of bottom board (visible in gaps and fork cavities) */}
                   <polygon
-                    points={`${startX},${bY} ${endX},${bY} ${endX + 12},${bY - 12} ${startX + 12},${bY - 12}`}
+                    points={`${xL0},${yTop0} ${xR0},${yTop0} ${xR1},${yTop1} ${xL1},${yTop1}`}
                     fill="url(#bottomLeadGradient)"
                     stroke="#451a03"
                     strokeWidth="1"
                   />
+                  {/* Front Face */}
                   <polygon
-                    points={`${startX},${bY} ${endX},${bY} ${endX},${bY + 10} ${startX},${bY + 10}`}
+                    points={`${xL0},${yTop0} ${xR0},${yTop0} ${xR0},${yBot0} ${xL0},${yBot0}`}
                     fill="#542306"
+                    stroke="#2e1002"
+                    strokeWidth="1"
+                  />
+                  {/* Right Side Face */}
+                  <polygon
+                    points={`${xR0},${yTop0} ${xR1},${yTop1} ${xR1},${yBot1} ${xR0},${yBot0}`}
+                    fill="#3b1604"
                     stroke="#2e1002"
                     strokeWidth="1"
                   />
@@ -263,28 +322,27 @@ export default function PalletDiagram({
 
             {/* 2. MIDDLE WOOD PIECES & OUTER RUNNERS (Sitting on bottom boards) */}
             {isoRunners.map((runner, i) => {
-              const xOffset = runner.xOffset;
-              const isMiddle = runner.isMiddle;
+              const { xLeft, xRight, isMiddle } = runner;
 
               return (
                 <g key={`runner-3d-${i}`} className={isMiddle ? "middle-wood-piece" : "outer-runner"}>
                   {/* Runner Top */}
                   <polygon
-                    points={`${xOffset - 10},270 ${xOffset + 10},270 ${xOffset + 102},170 ${xOffset + 82},170`}
+                    points={`${xLeft},272 ${xRight},272 ${xRight + 92},172 ${xLeft + 92},172`}
                     fill="url(#stringerGradient)"
                     stroke="#451a03"
                     strokeWidth="1"
                   />
                   {/* Runner Front Face */}
                   <polygon
-                    points={`${xOffset - 10},270 ${xOffset + 10},270 ${xOffset + 10},310 ${xOffset - 10},310`}
+                    points={`${xLeft},272 ${xRight},272 ${xRight},316 ${xLeft},316`}
                     fill={isMiddle ? "#632707" : "#542306"}
                     stroke="#2e1002"
                     strokeWidth="1"
                   />
                   {/* Runner Side Face */}
                   <polygon
-                    points={`${xOffset + 10},270 ${xOffset + 102},170 ${xOffset + 102},210 ${xOffset + 10},310`}
+                    points={`${xRight},272 ${xRight + 92},172 ${xRight + 92},216 ${xRight},316`}
                     fill={isMiddle ? "#481b05" : "#3b1604"}
                     stroke="#2e1002"
                     strokeWidth="1"
@@ -293,26 +351,37 @@ export default function PalletDiagram({
               );
             })}
 
-            {/* 3. UNIFORM TOP BOARDS */}
-            {Array.from({ length: topDeckboardCount }).map((_, i) => {
-              const boardY = 264 - i * (98 / Math.max(1, topDeckboardCount - 1));
+            {/* 3. UNIFORM TOP BOARDS (Spread out evenly across pallet length) */}
+            {[...topBoards3D].reverse().map((b) => {
+              const xL0 = Math.round(180 + b.t0 * 92);
+              const xR0 = Math.round(600 + b.t0 * 92);
+              const xL1 = Math.round(180 + b.t1 * 92);
+              const xR1 = Math.round(600 + b.t1 * 92);
+
+              const yTop0 = Math.round(264 - b.t0 * 100);
+              const yBot0 = Math.round(272 - b.t0 * 100);
+              const yTop1 = Math.round(264 - b.t1 * 100);
+              const yBot1 = Math.round(272 - b.t1 * 100);
 
               return (
-                <g key={`deck-3d-${i}`} className="deckboard-group">
+                <g key={`deck-3d-${b.index}`} className="deckboard-group">
+                  {/* Top Face */}
                   <polygon
-                    points={`180,${boardY} 600,${boardY} 614,${boardY - 14} 194,${boardY - 14}`}
+                    points={`${xL0},${yTop0} ${xR0},${yTop0} ${xR1},${yTop1} ${xL1},${yTop1}`}
                     fill="url(#lumberGradient)"
                     stroke="#78350f"
                     strokeWidth="1"
                   />
+                  {/* Front Face */}
                   <polygon
-                    points={`180,${boardY} 600,${boardY} 600,${boardY + 6} 180,${boardY + 6}`}
-                    fill="#78350f"
+                    points={`${xL0},${yTop0} ${xR0},${yTop0} ${xR0},${yBot0} ${xL0},${yBot0}`}
+                    fill="#92400e"
                     stroke="#451a03"
                     strokeWidth="1"
                   />
+                  {/* Right Side Face */}
                   <polygon
-                    points={`600,${boardY} 614,${boardY - 14} 614,${boardY - 8} 600,${boardY + 6}`}
+                    points={`${xR0},${yTop0} ${xR1},${yTop1} ${xR1},${yBot1} ${xR0},${yBot0}`}
                     fill="#542306"
                     stroke="#451a03"
                     strokeWidth="1"
@@ -321,7 +390,7 @@ export default function PalletDiagram({
               );
             })}
 
-            {/* 4. CAD PRODUCT (Accurately proportioned to clearances) */}
+            {/* 4. CAD PRODUCT (Accurately proportioned to clearances, sitting on top deckboards) */}
             {showProduct && (
               <g className="cad-product-group" opacity="0.95">
                 {/* Bottom Base */}
@@ -402,10 +471,18 @@ export default function PalletDiagram({
 
             {/* Vertical Stack & Pallet Height Callouts */}
             <g className="height-callout">
-              <line x1="120" y1="324" x2="120" y2="110" stroke="#f59e0b" strokeWidth="2" strokeDasharray="4 2" />
+              <line x1="120" y1="324" x2="120" y2={Math.min(200, 264 - isoH)} stroke="#f59e0b" strokeWidth="2" strokeDasharray="4 2" />
               <line x1="110" y1="324" x2="130" y2="324" stroke="#f59e0b" strokeWidth="2" />
-              <line x1="110" y1="110" x2="130" y2="110" stroke="#f59e0b" strokeWidth="2" />
-              <text x="95" y="220" fill="#f59e0b" fontSize="11" fontWeight="bold" textAnchor="middle" transform="rotate(-90 95 220)">
+              <line x1="110" y1={Math.min(200, 264 - isoH)} x2="130" y2={Math.min(200, 264 - isoH)} stroke="#f59e0b" strokeWidth="2" />
+              <text
+                x="95"
+                y={(324 + Math.min(200, 264 - isoH)) / 2}
+                fill="#f59e0b"
+                fontSize="11"
+                fontWeight="bold"
+                textAnchor="middle"
+                transform={`rotate(-90 95 ${(324 + Math.min(200, 264 - isoH)) / 2})`}
+              >
                 Total Stack: {cumulativeStackHeight}" H
               </text>
 
@@ -458,24 +535,33 @@ export default function PalletDiagram({
             </g>
 
             {/* Bottom Boards Footprints (Dotted outlines underneath) */}
-            {Array.from({ length: Math.min(8, bottomDeckboardCount) }).map((_, i) => {
-              const count = Math.min(8, bottomDeckboardCount);
-              const xPos = 150 + i * (465 / Math.max(1, count - 1));
-              return (
-                <rect
-                  key={`bot-fp-${i}`}
-                  x={xPos}
-                  y="70"
-                  width="35"
-                  height="340"
-                  rx="2"
-                  fill="rgba(180, 83, 9, 0.12)"
-                  stroke="#b45309"
-                  strokeWidth="1.2"
-                  strokeDasharray="4 3"
-                />
-              );
-            })}
+            {(() => {
+              const totalBot = Math.max(2, bottomDeckboardCount);
+              const availableW = 500;
+              const isOmitted = actualSpacing <= 0;
+              const boardInches = deckboardNominal === "1x6" ? 5.5 : 3.5;
+              const scale = availableW / palletLength;
+              const boardW = isOmitted ? availableW / totalBot : Math.max(16, Math.min(48, boardInches * scale));
+              const step = isOmitted ? boardW : (availableW - boardW) / Math.max(1, totalBot - 1);
+
+              return Array.from({ length: totalBot }).map((_, i) => {
+                const x = isOmitted ? 150 + i * boardW : 150 + i * step;
+                return (
+                  <rect
+                    key={`bot-fp-${i}`}
+                    x={x}
+                    y="70"
+                    width={boardW}
+                    height="340"
+                    rx="2"
+                    fill="rgba(180, 83, 9, 0.12)"
+                    stroke="#b45309"
+                    strokeWidth="1.2"
+                    strokeDasharray="4 3"
+                  />
+                );
+              });
+            })()}
 
             {/* Runners / Wood Pieces Footprints (FLUSH / TOUCHING WITH ZERO GAP WHEN DOUBLED) */}
             {topRunners.map((runner, i) => (
