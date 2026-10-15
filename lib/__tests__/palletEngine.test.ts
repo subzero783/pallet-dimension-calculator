@@ -47,52 +47,94 @@ describe("Pallet Engine Calculations", () => {
       expect(layout.actualGap).toBeLessThanOrEqual(3.0);
       expect(layout.actualGap).toBeGreaterThan(0);
     });
+
+    it("supports omitting gap (targetMaxGap = 0)", () => {
+      const layout = calculateDeckboardLayout(48, 0, "1x4");
+      expect(layout.topLeadCount).toBe(2);
+      expect(layout.topInteriorCount).toBeGreaterThan(0);
+      expect(layout.actualGap).toBe(0);
+    });
   });
 
-  describe("calculatePallet - Complete Engine", () => {
-    it("calculates standard 48x40 shipping pallet accurately", () => {
+  describe("calculatePallet - Complete Engine with 4-inch defaults and Middle Wood Pieces", () => {
+    it("calculates standard pallet with new 4-inch default allowances and 1 middle piece", () => {
       const result = calculatePallet({
         productLength: 46,
         productWidth: 38,
         productHeight: 30,
         productWeight: 800,
-        lengthAllowance: 2.0,
-        widthAllowance: 2.0,
-        palletStyle: "2-Way Stringer (Flush)",
-        deckboardNominal: "1x4",
-        stringerNominal: "2x4",
+        middleBoardCount: 1,
       });
 
-      expect(result.palletDimensions.length).toBe(48);
-      expect(result.palletDimensions.width).toBe(40);
-      expect(result.palletDimensions.height).toBeGreaterThan(4);
+      // 46 + 4 = 50, 38 + 4 = 42
+      expect(result.palletDimensions.length).toBe(50);
+      expect(result.palletDimensions.width).toBe(42);
+      // Pallet height = 0.75 + 3.5 + 0.75 = 5.0"
+      expect(result.palletDimensions.height).toBe(5);
+      // 2 outer runners + 1 middle wood piece = 3 total stringers
       expect(result.stringerCount).toBe(3);
-      expect(result.cutList.length).toBeGreaterThanOrEqual(4);
+      expect(result.middleBoardCount).toBe(1);
+
+      // Verify simplified cut list names
+      const cutNames = result.cutList.map((i) => i.name);
+      expect(cutNames).toContain("Top Lead Boards");
+      expect(cutNames).toContain("Top Deck Boards");
+      expect(cutNames).toContain("Middle Wood Pieces");
+      expect(cutNames).toContain("Outer Runners/Stringers");
+      expect(cutNames).toContain("Bottom Lead Boards");
+
+      // Verify quantities
+      const midItem = result.cutList.find((i) => i.name === "Middle Wood Pieces");
+      expect(midItem?.quantity).toBe(1);
+      const outerItem = result.cutList.find((i) => i.name === "Outer Runners/Stringers");
+      expect(outerItem?.quantity).toBe(2);
+      const bottomItem = result.cutList.find((i) => i.name === "Bottom Lead Boards");
+      expect(bottomItem?.quantity).toBe(2);
+
       expect(result.totalBoardFeet).toBeGreaterThan(15);
       expect(result.estimatedTareWeight).toBeGreaterThan(40);
       expect(result.fastenersCount).toBeGreaterThan(0);
       expect(result.maxSafeLoad).toBeGreaterThanOrEqual(800);
     });
 
-    it("handles heavy industrial oversized load (96x60 @ 3500 lbs)", () => {
+    it("calculates reinforced pallet with 2 middle wood pieces for heavy load", () => {
       const result = calculatePallet({
-        productLength: 94,
-        productWidth: 58,
-        productHeight: 40,
-        productWeight: 3500,
-        palletStyle: "Heavy-Duty Skid",
+        productLength: 58,
+        productWidth: 44,
+        productHeight: 36,
+        productWeight: 2000,
+        middleBoardCount: 2,
+        lengthAllowance: 4.0,
+        widthAllowance: 4.0,
         deckboardNominal: "1x6",
-        stringerNominal: "4x4",
-        lengthAllowance: 2.0,
-        widthAllowance: 2.0,
       });
 
-      expect(result.palletDimensions.length).toBe(96);
-      expect(result.palletDimensions.width).toBe(60);
-      expect(result.stringerCount).toBe(5);
-      // Heavy skid has no bottom deckboards
-      expect(result.bottomDeckboardCount).toBe(0);
-      expect(result.maxSafeLoad).toBeGreaterThanOrEqual(3500);
+      expect(result.palletDimensions.length).toBe(62);
+      expect(result.palletDimensions.width).toBe(48);
+      // 4 outer runners (2 left + 2 right) + 2 middle wood pieces = 6 total runners
+      expect(result.stringerCount).toBe(6);
+      expect(result.middleBoardCount).toBe(2);
+
+      const midItem = result.cutList.find((i) => i.name === "Middle Wood Pieces");
+      expect(midItem?.quantity).toBe(2);
+      const outerItem = result.cutList.find((i) => i.name === "Outer Runners/Stringers");
+      expect(outerItem?.quantity).toBe(4);
+    });
+
+    it("supports custom allowances and omitted gap", () => {
+      const result = calculatePallet({
+        productLength: 40,
+        productWidth: 30,
+        productHeight: 20,
+        productWeight: 500,
+        lengthAllowance: 2.0,
+        widthAllowance: 2.0,
+        boardGap: 0,
+      });
+
+      expect(result.palletDimensions.length).toBe(42);
+      expect(result.palletDimensions.width).toBe(32);
+      expect(result.actualSpacing).toBe(0);
     });
   });
 });

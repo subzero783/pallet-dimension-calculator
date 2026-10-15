@@ -33,24 +33,36 @@ export async function verifyToken(token: string): Promise<TokenPayload | null> {
 export const AUTH_COOKIE_NAME = "pallet_calc_auth";
 
 export async function setAuthCookie(token: string) {
-  const cookieStore = await cookies();
-  cookieStore.set(AUTH_COOKIE_NAME, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: 60 * 60 * 24, // 24 hours
-  });
+  try {
+    const cookieStore = await cookies();
+    cookieStore.set(AUTH_COOKIE_NAME, token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24, // 24 hours
+    });
+  } catch {
+    // Graceful fallback when cookies() is called outside request scope (e.g. testing)
+  }
 }
 
 export async function getAuthCookie(): Promise<string | undefined> {
-  const cookieStore = await cookies();
-  return cookieStore.get(AUTH_COOKIE_NAME)?.value;
+  try {
+    const cookieStore = await cookies();
+    return cookieStore.get(AUTH_COOKIE_NAME)?.value;
+  } catch {
+    return undefined;
+  }
 }
 
 export async function clearAuthCookie() {
-  const cookieStore = await cookies();
-  cookieStore.delete(AUTH_COOKIE_NAME);
+  try {
+    const cookieStore = await cookies();
+    cookieStore.delete(AUTH_COOKIE_NAME);
+  } catch {
+    // Graceful fallback when cookies() is called outside request scope
+  }
 }
 
 export async function getCurrentUser(): Promise<TokenPayload | null> {

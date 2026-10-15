@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAppDispatch, useAppSelector } from "@/store";
 import { logoutUser } from "@/store/slices/authSlice";
 import { useToast } from "@/context/ToastContext";
-import { Box, Layers, History, LogOut, User as UserIcon, Shield, Sparkles } from "lucide-react";
+import { Box, Layers, History, LogOut, User as UserIcon, Shield, Sparkles, Building2 } from "lucide-react";
 import { loadPreset } from "@/store/slices/calculatorSlice";
 
 export default function Navbar() {
@@ -90,12 +90,30 @@ export default function Navbar() {
         {/* Navigation Items */}
         <nav className="nav-links">
           <Link
+            href="/pacmaritime"
+            className={`nav-item ${pathname === "/pacmaritime" ? "active" : ""}`}
+          >
+            <Building2 size={17} />
+            <span>Pacific Maritime</span>
+          </Link>
+
+          <Link
             href="/calculator"
             className={`nav-item ${pathname === "/calculator" ? "active" : ""}`}
           >
             <Layers size={17} />
             <span>Calculator</span>
           </Link>
+
+          {user?.role === "supervisor" && (
+            <Link
+              href="/supervisor"
+              className={`nav-item supervisor-link ${pathname === "/supervisor" ? "active" : ""}`}
+            >
+              <Shield size={17} />
+              <span>Supervisor Dashboard</span>
+            </Link>
+          )}
 
           <Link
             href="/history"

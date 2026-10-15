@@ -28,9 +28,13 @@ function LoginForm() {
 
     setLoading(true);
     try {
-      await dispatch(loginUser({ username, password })).unwrap();
+      const loggedInUser = await dispatch(loginUser({ username: username.trim(), password })).unwrap();
       toast.success("Welcome back! Signed in successfully");
-      router.push(from);
+      if (loggedInUser.role === "supervisor" || username.toLowerCase().trim() === "oliver") {
+        router.push("/supervisor");
+      } else {
+        router.push(from);
+      }
     } catch (err: any) {
       toast.error(err.message || "Invalid credentials");
     } finally {
@@ -38,9 +42,9 @@ function LoginForm() {
     }
   };
 
-  const setDemoCredentials = (demoUser: string) => {
+  const setDemoCredentials = (demoUser: string, demoPass = "pallet2026!") => {
     setUsername(demoUser);
-    setPassword("pallet2026!");
+    setPassword(demoPass);
   };
 
   return (
@@ -62,7 +66,7 @@ function LoginForm() {
               id="username"
               type="text"
               className="form-input with-icon"
-              placeholder="e.g. clerk, supervisor, or admin"
+              placeholder="e.g. oliver, clerk, or admin"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
@@ -101,20 +105,20 @@ function LoginForm() {
         <div className="demo-buttons">
           <button
             type="button"
+            onClick={() => setDemoCredentials("oliver", "supervisor2026!")}
+            className="demo-btn"
+          >
+            <div className="demo-role">Supervisor (Oliver)</div>
+            <div className="demo-sub">oliver / supervisor2026!</div>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setDemoCredentials("clerk")}
             className="demo-btn"
           >
             <div className="demo-role">Shipping Clerk</div>
             <div className="demo-sub">clerk / pallet2026!</div>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setDemoCredentials("supervisor")}
-            className="demo-btn"
-          >
-            <div className="demo-role">Plant Supervisor</div>
-            <div className="demo-sub">supervisor / pallet2026!</div>
           </button>
 
           <button

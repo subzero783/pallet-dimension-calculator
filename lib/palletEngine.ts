@@ -6,11 +6,13 @@ export interface PalletInputParams {
   productHeight: number; // inches
   productWeight: number; // lbs
   palletStyle?: "2-Way Stringer (Flush)" | "2-Way Stringer (Overhang)" | "4-Way Notched Stringer" | "Heavy-Duty Skid";
-  lengthAllowance?: number; // default 2.0"
-  widthAllowance?: number; // default 2.0"
+  lengthAllowance?: number; // default 4.0"
+  widthAllowance?: number; // default 4.0"
   deckboardNominal?: "1x4" | "1x6";
   stringerNominal?: "2x4" | "4x4";
-  targetMaxGap?: number; // default 3.0"
+  targetMaxGap?: number; // default 3.0" (0 means omitted)
+  boardGap?: number; // default 3.0" (0 means omitted)
+  middleBoardCount?: 1 | 2; // default 1
   overhangDistance?: number; // default 1.5" if overhang style
 }
 
@@ -85,6 +87,7 @@ export function determineStringerCount(palletWidth: number, weight: number): num
 
 /**
  * Calculates deckboard layout and uniform spacing.
+ * When targetMaxGap is 0, gap is omitted and boards are placed continuously.
  */
 export function calculateDeckboardLayout(
   palletLength: number,
@@ -97,7 +100,7 @@ export function calculateDeckboardLayout(
   const leadBoardWidth = leadSpec.actualWidth; // 5.5"
   const interiorBoardWidth = interiorSpec.actualWidth; // 3.5" or 5.5"
 
-  // Pallet must have at least 2 lead boards
+  // Pallet must have 2 lead boards (front and back)
   const lengthForInterior = palletLength - 2 * leadBoardWidth;
 
   if (lengthForInterior <= 0) {
@@ -109,11 +112,18 @@ export function calculateDeckboardLayout(
     };
   }
 
+  // When targetMaxGap === 0, gap is omitted: pack interior boards edge-to-edge
+  if (targetMaxGap <= 0) {
+    const topInteriorCount = Math.max(0, Math.floor(lengthForInterior / interiorBoardWidth));
+    return {
+      topLeadCount: 2,
+      topInteriorCount,
+      actualGap: 0,
+      totalTopBoards: 2 + topInteriorCount,
+    };
+  }
+
   // Calculate minimum interior boards such that spacing <= targetMaxGap
-  // lengthForInterior = (N * interiorBoardWidth) + ((N + 1) * gap)
-  // gap = (lengthForInterior - N * interiorBoardWidth) / (N + 1) <= targetMaxGap
-  // lengthForInterior - targetMaxGap <= N * (interiorBoardWidth + targetMaxGap)
-  // N >= (lengthForInterior - targetMaxGap) / (interiorBoardWidth + targetMaxGap)
   const minN = Math.ceil((lengthForInterior - targetMaxGap) / (interiorBoardWidth + targetMaxGap));
   const topInteriorCount = Math.max(0, minN);
 
@@ -141,13 +151,17 @@ export function calculatePallet(input: PalletInputParams): ICalculationResult {
     productHeight,
     productWeight,
     palletStyle = "2-Way Stringer (Flush)",
-    lengthAllowance = 2.0,
-    widthAllowance = 2.0,
+    lengthAllowance = 4.0,
+    widthAllowance = 4.0,
     deckboardNominal = "1x4",
     stringerNominal = "2x4",
-    targetMaxGap = 3.0,
-    overhangDistance = 1.5,
+    targetMaxGap,
+    boardGap,
+    middleBoardCount = 1,
   } = input;
+
+  const effectiveGap = boardGap !== undefined ? boardGap : (targetMaxGap !== undefined ? targetMaxGap : 3.0);
+  const validatedMiddleCount: 1 | 2 = middleBoardCount === 2 ? 2 : 1;
 
   // 1. Overall Pallet Dimensions
   const palletLength = Math.max(12, Math.round((productLength + lengthAllowance) * 10) / 10);
@@ -157,159 +171,149 @@ export function calculatePallet(input: PalletInputParams): ICalculationResult {
   const deckboardSpec = LUMBER_SPECS[deckboardNominal] || LUMBER_SPECS["1x4"];
   const leadBoardSpec = LUMBER_SPECS["1x6"];
 
-  const isSkid = palletStyle === "Heavy-Duty Skid";
-  const isOverhang = palletStyle === "2-Way Stringer (Overhang)";
-
-  // Stringer count
-  const stringerCount = determineStringerCount(palletWidth, productWeight);
+  // Total stringers/runners in the middle area between top and bottom lead:
+  // - 1 piece mode (Light): 1 left + 1 middle + 1 right = 3 total pieces (2 outer + 1 middle)
+  // - 2 pieces mode (Heavy): 2 left + 2 middle + 2 right = 6 total pieces (4 outer + 2 middle)
+  const outerStringerCount = validatedMiddleCount === 2 ? 4 : 2;
+  const middleStringerCount = validatedMiddleCount === 2 ? 2 : 1;
+  const totalStringerCount = outerStringerCount + middleStringerCount; // 3 or 6 pieces
 
   // Deckboard layout for top
-  const topLayout = calculateDeckboardLayout(palletLength, targetMaxGap, deckboardNominal);
+  const topLayout = calculateDeckboardLayout(palletLength, effectiveGap, deckboardNominal);
 
-  // Bottom deckboard layout
-  // Standard pallets have 2 bottom lead boards and 2-3 interior boards (unless Heavy-Duty Skid)
-  let bottomLeadCount = 0;
-  let bottomInteriorCount = 0;
-  if (!isSkid) {
-    bottomLeadCount = 2;
-    bottomInteriorCount = palletLength >= 60 ? 3 : 2;
-  }
-  const totalBottomBoards = bottomLeadCount + bottomInteriorCount;
+  // Bottom deckboard layout: 2 bottom lead boards
+  const bottomLeadCount = 2;
+  const totalBottomBoards = bottomLeadCount;
 
-  // Actual heights
-  const stringerActualHeight = stringerSpec.actualThickness === 1.5 ? stringerSpec.actualWidth : stringerSpec.actualThickness;
+  // Heights:
+  // Stringer/runner height: 3.5" (for 2x4 standard upright)
+  const stringerActualHeight =
+    stringerSpec.actualThickness === 1.5 ? stringerSpec.actualWidth : stringerSpec.actualThickness;
   const topDeckThickness = deckboardSpec.actualThickness;
-  const bottomDeckThickness = isSkid ? 0 : deckboardSpec.actualThickness;
-  const totalPalletHeight = Math.round((stringerActualHeight + topDeckThickness + bottomDeckThickness) * 10) / 10;
+  const bottomLeadThickness = leadBoardSpec.actualThickness;
+  const totalPalletHeight =
+    Math.round((bottomLeadThickness + stringerActualHeight + topDeckThickness) * 10) / 10;
 
-  // Cut List item generation
+  // Simplified Itemized Wood Cut List:
+  // Essential build information for shipping floor sawyers:
+  // 1. Top Lead Boards
+  // 2. Top Deck Boards
+  // 3. Middle Wood Pieces [1 or 2] (Center pieces right next to each other)
+  // 4. Outer Runners/Stringers [2 or 4] (Left and Right pieces right next to each other)
+  // 5. Bottom Lead Boards
   const cutList: ICutListItem[] = [];
-
-  // 1. Stringers
+  const deckboardLength = palletWidth;
   const stringerLength = palletLength;
-  const stringerBF = calculateBoardFeet(
-    stringerSpec.nominalThickness,
-    stringerSpec.nominalWidth,
-    stringerLength,
-    stringerCount
+
+  // 1. Top Lead Boards
+  const topLeadBF = calculateBoardFeet(
+    leadBoardSpec.nominalThickness,
+    leadBoardSpec.nominalWidth,
+    deckboardLength,
+    2
   );
   cutList.push({
-    name: isSkid ? "Skid Runners" : "Stringers",
-    quantity: stringerCount,
-    nominalDimension: `${stringerSpec.nominal} x ${stringerLength}"`,
-    actualDimension: `${stringerSpec.actualThickness}" x ${stringerSpec.actualWidth}" x ${stringerLength}"`,
-    thickness: stringerSpec.actualThickness,
-    width: stringerSpec.actualWidth,
-    length: stringerLength,
-    boardFeet: stringerBF,
+    name: "Top Lead Boards",
+    quantity: 2,
+    nominalDimension: `${leadBoardSpec.nominal} x ${deckboardLength}"`,
+    actualDimension: `${leadBoardSpec.actualThickness}" x ${leadBoardSpec.actualWidth}" x ${deckboardLength}"`,
+    thickness: leadBoardSpec.actualThickness,
+    width: leadBoardSpec.actualWidth,
+    length: deckboardLength,
+    boardFeet: topLeadBF,
   });
 
-  // Deckboard length
-  // For flush: Deckboard Length = palletWidth
-  // For overhang: stringer span is palletWidth - 2 * overhangDistance, Deckboard Length = palletWidth
-  const deckboardLength = palletWidth;
-
-  // 2. Top Lead Deckboards
-  if (topLayout.topLeadCount > 0) {
-    const leadBF = calculateBoardFeet(
-      leadBoardSpec.nominalThickness,
-      leadBoardSpec.nominalWidth,
-      deckboardLength,
-      topLayout.topLeadCount
-    );
-    cutList.push({
-      name: "Top Lead Deckboards",
-      quantity: topLayout.topLeadCount,
-      nominalDimension: `${leadBoardSpec.nominal} x ${deckboardLength}"`,
-      actualDimension: `${leadBoardSpec.actualThickness}" x ${leadBoardSpec.actualWidth}" x ${deckboardLength}"`,
-      thickness: leadBoardSpec.actualThickness,
-      width: leadBoardSpec.actualWidth,
-      length: deckboardLength,
-      boardFeet: leadBF,
-    });
-  }
-
-  // 3. Top Interior Deckboards
+  // 2. Top Deck Boards
   if (topLayout.topInteriorCount > 0) {
-    const interiorBF = calculateBoardFeet(
+    const topInteriorBF = calculateBoardFeet(
       deckboardSpec.nominalThickness,
       deckboardSpec.nominalWidth,
       deckboardLength,
       topLayout.topInteriorCount
     );
     cutList.push({
-      name: "Top Interior Deckboards",
+      name: "Top Deck Boards",
       quantity: topLayout.topInteriorCount,
       nominalDimension: `${deckboardSpec.nominal} x ${deckboardLength}"`,
       actualDimension: `${deckboardSpec.actualThickness}" x ${deckboardSpec.actualWidth}" x ${deckboardLength}"`,
       thickness: deckboardSpec.actualThickness,
       width: deckboardSpec.actualWidth,
       length: deckboardLength,
-      boardFeet: interiorBF,
+      boardFeet: topInteriorBF,
     });
   }
 
-  // 4. Bottom Lead Deckboards
-  if (bottomLeadCount > 0) {
-    const bottomLeadBF = calculateBoardFeet(
-      leadBoardSpec.nominalThickness,
-      leadBoardSpec.nominalWidth,
-      deckboardLength,
-      bottomLeadCount
-    );
-    cutList.push({
-      name: "Bottom Lead Deckboards",
-      quantity: bottomLeadCount,
-      nominalDimension: `${leadBoardSpec.nominal} x ${deckboardLength}"`,
-      actualDimension: `${leadBoardSpec.actualThickness}" x ${leadBoardSpec.actualWidth}" x ${deckboardLength}"`,
-      thickness: leadBoardSpec.actualThickness,
-      width: leadBoardSpec.actualWidth,
-      length: deckboardLength,
-      boardFeet: bottomLeadBF,
-    });
-  }
+  // 3. Middle Wood Pieces (1 or 2 pieces situated in the very middle together)
+  const middleBF = calculateBoardFeet(
+    stringerSpec.nominalThickness,
+    stringerSpec.nominalWidth,
+    stringerLength,
+    middleStringerCount
+  );
+  cutList.push({
+    name: "Middle Wood Pieces",
+    quantity: middleStringerCount,
+    nominalDimension: `${stringerSpec.nominal} x ${stringerLength}"`,
+    actualDimension: `${stringerSpec.actualThickness}" x ${stringerSpec.actualWidth}" x ${stringerLength}"`,
+    thickness: stringerSpec.actualThickness,
+    width: stringerSpec.actualWidth,
+    length: stringerLength,
+    boardFeet: middleBF,
+  });
 
-  // 5. Bottom Interior Deckboards
-  if (bottomInteriorCount > 0) {
-    const bottomInteriorBF = calculateBoardFeet(
-      deckboardSpec.nominalThickness,
-      deckboardSpec.nominalWidth,
-      deckboardLength,
-      bottomInteriorCount
-    );
-    cutList.push({
-      name: "Bottom Interior Deckboards",
-      quantity: bottomInteriorCount,
-      nominalDimension: `${deckboardSpec.nominal} x ${deckboardLength}"`,
-      actualDimension: `${deckboardSpec.actualThickness}" x ${deckboardSpec.actualWidth}" x ${deckboardLength}"`,
-      thickness: deckboardSpec.actualThickness,
-      width: deckboardSpec.actualWidth,
-      length: deckboardLength,
-      boardFeet: bottomInteriorBF,
-    });
-  }
+  // 4. Outer Runners/Stringers (2 pieces for single, 4 pieces for doubled side-by-side)
+  const outerBF = calculateBoardFeet(
+    stringerSpec.nominalThickness,
+    stringerSpec.nominalWidth,
+    stringerLength,
+    outerStringerCount
+  );
+  cutList.push({
+    name: "Outer Runners/Stringers",
+    quantity: outerStringerCount,
+    nominalDimension: `${stringerSpec.nominal} x ${stringerLength}"`,
+    actualDimension: `${stringerSpec.actualThickness}" x ${stringerSpec.actualWidth}" x ${stringerLength}"`,
+    thickness: stringerSpec.actualThickness,
+    width: stringerSpec.actualWidth,
+    length: stringerLength,
+    boardFeet: outerBF,
+  });
+
+  // 5. Bottom Lead Boards (2 pieces)
+  const bottomLeadBF = calculateBoardFeet(
+    leadBoardSpec.nominalThickness,
+    leadBoardSpec.nominalWidth,
+    deckboardLength,
+    2
+  );
+  cutList.push({
+    name: "Bottom Lead Boards",
+    quantity: 2,
+    nominalDimension: `${leadBoardSpec.nominal} x ${deckboardLength}"`,
+    actualDimension: `${leadBoardSpec.actualThickness}" x ${leadBoardSpec.actualWidth}" x ${deckboardLength}"`,
+    thickness: leadBoardSpec.actualThickness,
+    width: leadBoardSpec.actualWidth,
+    length: deckboardLength,
+    boardFeet: bottomLeadBF,
+  });
 
   // Total board feet
-  const totalBoardFeet = Math.round(
-    cutList.reduce((acc, item) => acc + item.boardFeet, 0) * 100
-  ) / 100;
+  const totalBoardFeet =
+    Math.round(cutList.reduce((acc, item) => acc + item.boardFeet, 0) * 100) / 100;
 
-  // Fastener calculations: 3 nails per deckboard-stringer junction
+  // Fastener calculations: 3 nails per deckboard-runner junction
   const totalDeckboards = topLayout.totalTopBoards + totalBottomBoards;
-  const fastenersCount = totalDeckboards * stringerCount * 3;
+  const fastenersCount = totalDeckboards * totalStringerCount * 3;
 
   // Estimated Tare Weight
   const lumberWeight = totalBoardFeet * LUMBER_DENSITY_PER_BF;
   const fastenerWeight = fastenersCount * FASTENER_WEIGHT_LBS;
   const estimatedTareWeight = Math.round((lumberWeight + fastenerWeight) * 10) / 10;
 
-  // Max Safe Distributed Load calculation:
-  // Base capacity per stringer:
-  // 2x4: ~900 lbs distributed per stringer for <= 48" span, reduced slightly for > 48" span
-  // 4x4: ~2000 lbs distributed per stringer
+  // Max Safe Distributed Load calculation
   const spanFactor = palletLength > 48 ? Math.max(0.65, 48 / palletLength) : 1.0;
   const baseStringerCapacity = stringerNominal === "4x4" ? 2200 : 950;
-  const calculatedLoad = Math.round(stringerCount * baseStringerCapacity * spanFactor);
+  const calculatedLoad = Math.round(totalStringerCount * baseStringerCapacity * spanFactor);
   const maxSafeLoad = Math.min(10000, Math.max(1500, Math.round(calculatedLoad / 50) * 50));
 
   return {
@@ -325,7 +329,9 @@ export function calculatePallet(input: PalletInputParams): ICalculationResult {
     fastenersCount,
     topDeckboardCount: topLayout.totalTopBoards,
     bottomDeckboardCount: totalBottomBoards,
-    stringerCount,
+    stringerCount: totalStringerCount,
     actualSpacing: topLayout.actualGap,
+    middleBoardCount: validatedMiddleCount,
+    boardGap: effectiveGap,
   };
 }

@@ -77,17 +77,6 @@ export default function HomePage() {
           Eliminate manual math errors, calculate board foot totals, ensure forklift clearances,
           and generate instant sawyer cut sheets.
         </p>
-
-        <div className="hero-cta-group">
-          <Link href="/calculator" className="btn btn-primary btn-lg">
-            <span>Launch Calculator</span>
-            <ArrowRight size={18} />
-          </Link>
-
-          <Link href="/history" className="btn btn-secondary btn-lg">
-            <span>View Work Orders</span>
-          </Link>
-        </div>
       </section>
 
       {/* Interactive Quick Presets */}

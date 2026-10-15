@@ -26,10 +26,15 @@ export interface ICalculationResult {
   bottomDeckboardCount: number;
   stringerCount: number;
   actualSpacing: number;
+  middleBoardCount?: number;
+  boardGap?: number;
 }
 
 export interface IWorkOrder extends Document {
   workOrderId: string;
+  jobId?: string;
+  employeeId?: string;
+  employeeFirstName?: string;
   productName: string;
   customer: string;
   cadDimensions: {
@@ -45,6 +50,8 @@ export interface IWorkOrder extends Document {
     deckboardNominal: string;
     stringerNominal: string;
     targetMaxGap: number;
+    boardGap?: number;
+    middleBoardCount?: number;
   };
   calculationResult: ICalculationResult;
   notes?: string;
@@ -57,7 +64,7 @@ export interface IWorkOrder extends Document {
 const CutListItemSchema = new Schema<ICutListItem>({
   name: { type: String, required: true },
   quantity: { type: Number, required: true },
-  nominalDimension: { type: String, required: true },
+  nominalDimension: { type: String, default: "" },
   actualDimension: { type: String, required: true },
   thickness: { type: Number, required: true },
   width: { type: Number, required: true },
@@ -73,6 +80,19 @@ const WorkOrderSchema = new Schema<IWorkOrder>(
       unique: true,
       trim: true,
       index: true,
+    },
+    jobId: {
+      type: String,
+      trim: true,
+      index: true,
+    },
+    employeeId: {
+      type: String,
+      trim: true,
+    },
+    employeeFirstName: {
+      type: String,
+      trim: true,
     },
     productName: {
       type: String,
@@ -92,11 +112,13 @@ const WorkOrderSchema = new Schema<IWorkOrder>(
     },
     palletConfig: {
       palletStyle: { type: String, required: true, default: "2-Way Stringer (Flush)" },
-      lengthAllowance: { type: Number, required: true, default: 2.0 },
-      widthAllowance: { type: Number, required: true, default: 2.0 },
+      lengthAllowance: { type: Number, required: true, default: 4.0 },
+      widthAllowance: { type: Number, required: true, default: 4.0 },
       deckboardNominal: { type: String, required: true, default: "1x4" },
       stringerNominal: { type: String, required: true, default: "2x4" },
       targetMaxGap: { type: Number, required: true, default: 3.0 },
+      boardGap: { type: Number, default: 3.0 },
+      middleBoardCount: { type: Number, default: 1 },
     },
     calculationResult: {
       palletDimensions: {

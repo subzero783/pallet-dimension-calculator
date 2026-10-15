@@ -7,20 +7,21 @@ import { ToastProvider } from "@/context/ToastContext";
 import { calculatePallet } from "@/lib/palletEngine";
 
 describe("CutListTable Component", () => {
-  it("renders cut sheet items and metrics correctly", () => {
+  it("renders simplified cut sheet items and metrics correctly", () => {
     const calcResult = calculatePallet({
       productLength: 46,
       productWidth: 38,
       productHeight: 30,
       productWeight: 800,
+      middleBoardCount: 1,
     });
 
     render(
       <ToastProvider>
         <CutListTable
-          workOrderId="WO-99123"
+          jobId="JOB-99123"
           productName="Turbine Housing"
-          customer="GE Aviation"
+          customer="Pacific Maritime / GE Aviation"
           calculationResult={calcResult}
           palletDimensions={calcResult.palletDimensions}
         />
@@ -28,8 +29,10 @@ describe("CutListTable Component", () => {
     );
 
     expect(screen.getByText(/Itemized Wood Cut List/i)).toBeInTheDocument();
-    expect(screen.getByText("Stringers")).toBeInTheDocument();
-    expect(screen.getByText("Top Lead Deckboards")).toBeInTheDocument();
+    expect(screen.getByText("Top Lead Boards")).toBeInTheDocument();
+    expect(screen.getByText("Outer Runners/Stringers")).toBeInTheDocument();
+    expect(screen.getByText("Middle Wood Pieces")).toBeInTheDocument();
+    expect(screen.getByText("Bottom Lead Boards")).toBeInTheDocument();
     expect(screen.getByText(/Total Board Feet/i)).toBeInTheDocument();
     expect(screen.getByText(/Estimated Tare Weight/i)).toBeInTheDocument();
     expect(screen.getByText(/Fasteners Required/i)).toBeInTheDocument();

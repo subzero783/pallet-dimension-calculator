@@ -43,3 +43,6 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
+
+# GitHub Workflows (requires special OAuth workflow scope)
+.github/

@@ -3,7 +3,10 @@ import { ICalculationResult } from "@/models/WorkOrder";
 
 export interface SerializedWorkOrder {
   _id?: string;
+  jobId?: string;
   workOrderId: string;
+  employeeId?: string;
+  employeeFirstName?: string;
   productName: string;
   customer: string;
   cadDimensions: {
@@ -19,6 +22,8 @@ export interface SerializedWorkOrder {
     deckboardNominal: string;
     stringerNominal: string;
     targetMaxGap: number;
+    boardGap?: number;
+    middleBoardCount?: number;
   };
   calculationResult: ICalculationResult;
   notes?: string;
@@ -46,9 +51,14 @@ const initialState: WorkOrderState = {
   statusFilter: "ALL",
 };
 
-export const fetchWorkOrders = createAsyncThunk(
+export const fetchWorkOrders = createAsyncThunk<
+  SerializedWorkOrder[],
+  { query?: string; status?: string } | void
+>(
   "workOrders/fetchAll",
-  async ({ query = "", status = "ALL" }: { query?: string; status?: string } = {}) => {
+  async (args) => {
+    const query = args?.query || "";
+    const status = args?.status || "ALL";
     const params = new URLSearchParams();
     if (query) params.set("q", query);
     if (status && status !== "ALL") params.set("status", status);

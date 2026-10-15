@@ -27,4 +27,20 @@ describe("Auth Utilities (jose JWT)", () => {
     const result = await verifyToken("invalid.token.string");
     expect(result).toBeNull();
   });
+
+  it("successfully signs and verifies supervisor Oliver token", async () => {
+    const payload = {
+      userId: "supervisor-oliver",
+      username: "oliver",
+      name: "Oliver",
+      role: "supervisor",
+    };
+
+    const token = await signToken(payload);
+    const decoded = await verifyToken(token);
+    expect(decoded).not.toBeNull();
+    expect(decoded?.username).toBe("oliver");
+    expect(decoded?.role).toBe("supervisor");
+    expect(decoded?.name).toBe("Oliver");
+  });
 });

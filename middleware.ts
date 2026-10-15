@@ -6,7 +6,7 @@ const key = new TextEncoder().encode(JWT_SECRET);
 const AUTH_COOKIE_NAME = "pallet_calc_auth";
 
 // Routes that require an authenticated user
-const PROTECTED_PREFIXES = ["/history", "/api/work-orders"];
+const PROTECTED_PREFIXES = ["/history", "/supervisor"];
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -15,20 +15,25 @@ export async function middleware(req: NextRequest) {
     pathname.startsWith(prefix)
   );
 
-  // If hitting login page while already authenticated, redirect to /calculator
+  // If hitting login page while already authenticated, redirect
   const token = req.cookies.get(AUTH_COOKIE_NAME)?.value;
 
   let isValidToken = false;
+  let userPayload: any = null;
   if (token) {
     try {
-      await jwtVerify(token, key, { algorithms: ["HS256"] });
+      const { payload } = await jwtVerify(token, key, { algorithms: ["HS256"] });
       isValidToken = true;
+      userPayload = payload;
     } catch {
       isValidToken = false;
     }
   }
 
   if (pathname === "/login" && isValidToken) {
+    if (userPayload?.role === "supervisor") {
+      return NextResponse.redirect(new URL("/supervisor", req.url));
+    }
     return NextResponse.redirect(new URL("/calculator", req.url));
   }
 
@@ -52,7 +57,7 @@ export async function middleware(req: NextRequest) {
 export const config = {
   matcher: [
     "/history/:path*",
-    "/api/work-orders/:path*",
+    "/supervisor/:path*",
     "/login",
   ],
 };

@@ -16,7 +16,10 @@ export async function GET(req: NextRequest) {
     const filter: any = {};
     if (query) {
       filter.$or = [
+        { jobId: { $regex: query, $options: "i" } },
         { workOrderId: { $regex: query, $options: "i" } },
+        { employeeId: { $regex: query, $options: "i" } },
+        { employeeFirstName: { $regex: query, $options: "i" } },
         { productName: { $regex: query, $options: "i" } },
         { customer: { $regex: query, $options: "i" } },
       ];
@@ -39,9 +42,12 @@ export async function GET(req: NextRequest) {
     if (query) {
       orders = orders.filter(
         (o) =>
-          o.workOrderId.toLowerCase().includes(query) ||
-          o.productName.toLowerCase().includes(query) ||
-          o.customer.toLowerCase().includes(query)
+          (o.jobId && o.jobId.toLowerCase().includes(query)) ||
+          (o.workOrderId && o.workOrderId.toLowerCase().includes(query)) ||
+          (o.employeeId && o.employeeId.toLowerCase().includes(query)) ||
+          (o.employeeFirstName && o.employeeFirstName.toLowerCase().includes(query)) ||
+          (o.productName && o.productName.toLowerCase().includes(query)) ||
+          (o.customer && o.customer.toLowerCase().includes(query))
       );
     }
 
@@ -59,7 +65,10 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
 
     const {
+      jobId,
       workOrderId,
+      employeeId,
+      employeeFirstName,
       productName,
       customer,
       cadDimensions,
@@ -68,16 +77,20 @@ export async function POST(req: NextRequest) {
       status,
     } = body;
 
-    if (!productName || !customer || !cadDimensions) {
+    if (!cadDimensions) {
       return NextResponse.json(
-        { error: "Product name, customer, and CAD dimensions are required" },
+        { error: "CAD dimensions are required" },
         { status: 400 }
       );
     }
 
-    const finalWorkOrderId =
+    const finalJobId =
+      jobId?.trim() ||
       workOrderId?.trim() ||
-      `WO-${Math.floor(10000 + Math.random() * 90000)}`;
+      `JOB-${Math.floor(10000 + Math.random() * 90000)}`;
+
+    const finalProductName = productName?.trim() || "Pallet Assembly";
+    const finalCustomer = customer?.trim() || "Pacific Maritime Industries";
 
     const calculationResult =
       body.calculationResult ||
@@ -87,54 +100,65 @@ export async function POST(req: NextRequest) {
         productHeight: cadDimensions.height,
         productWeight: cadDimensions.weight,
         palletStyle: palletConfig?.palletStyle,
-        lengthAllowance: palletConfig?.lengthAllowance,
-        widthAllowance: palletConfig?.widthAllowance,
+        lengthAllowance: palletConfig?.lengthAllowance ?? 4.0,
+        widthAllowance: palletConfig?.widthAllowance ?? 4.0,
         deckboardNominal: palletConfig?.deckboardNominal,
         stringerNominal: palletConfig?.stringerNominal,
-        targetMaxGap: palletConfig?.targetMaxGap,
+        targetMaxGap: palletConfig?.targetMaxGap ?? 3.0,
+        boardGap: palletConfig?.boardGap ?? palletConfig?.targetMaxGap ?? 3.0,
+        middleBoardCount: palletConfig?.middleBoardCount ?? 1,
       });
 
     const orderPayload = {
       _id: `wo-${Date.now()}`,
-      workOrderId: finalWorkOrderId,
-      productName,
-      customer,
+      jobId: finalJobId,
+      workOrderId: finalJobId,
+      employeeId: employeeId?.trim() || "",
+      employeeFirstName: employeeFirstName?.trim() || "",
+      productName: finalProductName,
+      customer: finalCustomer,
       cadDimensions,
       palletConfig: palletConfig || {
         palletStyle: "2-Way Stringer (Flush)",
-        lengthAllowance: 2.0,
-        widthAllowance: 2.0,
+        lengthAllowance: 4.0,
+        widthAllowance: 4.0,
         deckboardNominal: "1x4",
         stringerNominal: "2x4",
         targetMaxGap: 3.0,
+        boardGap: 3.0,
+        middleBoardCount: 1,
       },
       calculationResult,
       notes: notes || "",
       status: status || "READY_FOR_BUILD",
-      createdBy: user?.name || user?.username || "Shipping Dept",
+      createdBy: employeeFirstName
+        ? `${employeeFirstName} (${employeeId || "Staff"})`
+        : user?.name || user?.username || "Shipping Dept",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
 
     try {
       await connectToDatabase();
-      const existing = await WorkOrder.findOne({ workOrderId: finalWorkOrderId });
+      const existing = await WorkOrder.findOne({
+        $or: [{ workOrderId: finalJobId }, { jobId: finalJobId }],
+      });
       if (existing) {
         return NextResponse.json(
-          { error: `Work order ${finalWorkOrderId} already exists` },
+          { error: `Job ${finalJobId} already exists` },
           { status: 409 }
         );
       }
       const newOrder = await WorkOrder.create(orderPayload);
       return NextResponse.json(
-        { message: "Work order created successfully", workOrder: newOrder },
+        { message: "Job created successfully", workOrder: newOrder },
         { status: 201 }
       );
     } catch {
       // Memory store save
       addMemoryOrder(orderPayload);
       return NextResponse.json(
-        { message: "Work order saved to plant register", workOrder: orderPayload },
+        { message: "Job saved to plant register", workOrder: orderPayload },
         { status: 201 }
       );
     }

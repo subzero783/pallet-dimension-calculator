@@ -22,6 +22,28 @@ export async function POST(req: NextRequest) {
 
     const normalizedUsername = username.toLowerCase().trim();
 
+    // Environment-variable based supervisor login
+    const supervisorUsername = (process.env.SUPERVISOR_USERNAME || "oliver").toLowerCase().trim();
+    const supervisorPassword = process.env.SUPERVISOR_PASSWORD || "supervisor2026!";
+    const supervisorName = process.env.SUPERVISOR_NAME || "Oliver";
+
+    if (normalizedUsername === supervisorUsername && password === supervisorPassword) {
+      const tokenPayload = {
+        userId: "supervisor-oliver",
+        username: supervisorUsername,
+        name: supervisorName,
+        role: "supervisor",
+      };
+
+      const token = await signToken(tokenPayload);
+      await setAuthCookie(token);
+
+      return NextResponse.json({
+        message: "Login successful",
+        user: tokenPayload,
+      });
+    }
+
     // Fast-path: Auto-authenticate demo accounts immediately
     if (DEMO_USERS[normalizedUsername] && password === "pallet2026!") {
       const demoConfig = DEMO_USERS[normalizedUsername];

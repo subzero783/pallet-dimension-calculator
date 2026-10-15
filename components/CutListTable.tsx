@@ -1,19 +1,21 @@
 "use client";
 
 import React from "react";
-import { ICutListItem, ICalculationResult } from "@/models/WorkOrder";
+import { ICalculationResult } from "@/models/WorkOrder";
 import { useToast } from "@/context/ToastContext";
 import { Copy, Download, Printer, Hammer, Weight, ShieldCheck, Ruler } from "lucide-react";
 
 interface CutListTableProps {
-  workOrderId: string;
-  productName: string;
-  customer: string;
+  jobId?: string;
+  workOrderId?: string;
+  productName?: string;
+  customer?: string;
   calculationResult: ICalculationResult;
   palletDimensions: { length: number; width: number; height: number };
 }
 
 export default function CutListTable({
+  jobId,
   workOrderId,
   productName,
   customer,
@@ -21,6 +23,8 @@ export default function CutListTable({
   palletDimensions,
 }: CutListTableProps) {
   const toast = useToast();
+  const activeJobId = jobId || workOrderId || "JOB-PENDING";
+
   const {
     cutList,
     totalBoardFeet,
@@ -31,39 +35,37 @@ export default function CutListTable({
   } = calculationResult;
 
   const handleCopyClipboard = () => {
-    let text = `=== PALLET CUT SHEET: ${workOrderId} ===\n`;
-    text += `Product: ${productName} | Customer: ${customer}\n`;
+    let text = `=== PALLET CUT SHEET: ${activeJobId} ===\n`;
+    if (productName) text += `Product: ${productName} | Customer: ${customer || "N/A"}\n`;
     text += `Pallet Size: ${palletDimensions.length}"L x ${palletDimensions.width}"W x ${palletDimensions.height}"H\n`;
     text += `Board Spacing: ${actualSpacing}" Uniform Gap\n\n`;
-    text += `CUT LIST:\n`;
+    text += `ITEMIZED WOOD CUT LIST:\n`;
     cutList.forEach((item) => {
-      text += `- ${item.quantity}x ${item.name}: Nominal [${item.nominalDimension}], Actual [${item.actualDimension}] -> ${item.boardFeet} BF\n`;
+      text += `- ${item.name} | Qty: ${item.quantity} pcs | Cut Dimensions: ${item.actualDimension}\n`;
     });
     text += `\nTOTALS:\n`;
     text += `Total Board Feet: ${totalBoardFeet} BF\n`;
-    text += `Fasteners (Spiral/Screw Nails): ${fastenersCount} nails\n`;
     text += `Estimated Tare Weight: ${estimatedTareWeight} lbs\n`;
-    text += `Max Safe Distributed Load: ${maxSafeLoad} lbs\n`;
+    text += `Fasteners Required: ${fastenersCount} nails\n`;
 
     navigator.clipboard.writeText(text);
     toast.success("Cut list copied to clipboard!");
   };
 
   const handleExportCSV = () => {
-    let csv = "Component,Quantity,Nominal Dimension,Actual Dimension (T x W x L),Board Feet\n";
+    let csv = "Part / Board Name,Quantity (pcs),Cut Dimensions (Thickness x Width x Cut Length)\n";
     cutList.forEach((item) => {
-      csv += `"${item.name}",${item.quantity},"${item.nominalDimension}","${item.actualDimension}",${item.boardFeet}\n`;
+      csv += `"${item.name}",${item.quantity},"${item.actualDimension}"\n`;
     });
-    csv += `\n"Total Board Feet",,,,${totalBoardFeet}\n`;
-    csv += `"Estimated Tare Weight (lbs)",,,,${estimatedTareWeight}\n`;
-    csv += `"Fasteners Required",,,,${fastenersCount}\n`;
-    csv += `"Max Safe Distributed Load (lbs)",,,,${maxSafeLoad}\n`;
+    csv += `\n"Total Board Feet",,"${totalBoardFeet} BF"\n`;
+    csv += `"Estimated Tare Weight",,"${estimatedTareWeight} lbs"\n`;
+    csv += `"Fasteners Required",,"${fastenersCount} nails"\n`;
 
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute("download", `cut_sheet_${workOrderId}.csv`);
+    link.setAttribute("download", `cut_sheet_${activeJobId}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -81,10 +83,10 @@ export default function CutListTable({
         <div className="cut-sheet-title-group">
           <div className="cut-sheet-title">
             <Hammer size={18} className="text-amber" />
-            <span>Itemized Wood Cut List & Bill of Materials</span>
+            <span>Itemized Wood Cut List</span>
           </div>
           <div className="cut-sheet-subtitle">
-            Sawyer ready: {cutList.reduce((acc, i) => acc + i.quantity, 0)} total lumber cuts required
+            Shipping Floor Build Sheet: {cutList.reduce((acc, i) => acc + i.quantity, 0)} total wood pieces to cut
           </div>
         </div>
 
@@ -104,16 +106,14 @@ export default function CutListTable({
         </div>
       </div>
 
-      {/* Table */}
+      {/* Simplified Table for Shipping Dept Employees */}
       <div className="table-responsive">
         <table className="cut-table">
           <thead>
             <tr>
-              <th>Component Name</th>
-              <th className="text-center">Qty</th>
-              <th>Nominal Spec</th>
-              <th>Actual Dimensions (T × W × L)</th>
-              <th className="text-right">Board Feet (BF)</th>
+              <th>Part / Board Name</th>
+              <th className="text-center">Quantity (pcs)</th>
+              <th>Cut Dimensions (Thickness × Width × Cut Length)</th>
             </tr>
           </thead>
           <tbody>
@@ -123,16 +123,17 @@ export default function CutListTable({
                   <div className="item-name-cell">
                     <span className="item-name">{item.name}</span>
                     {item.name.includes("Lead") && (
-                      <span className="lead-tag">High-Impact Lead</span>
+                      <span className="lead-tag">Lead Board</span>
+                    )}
+                    {item.name.includes("Middle") && (
+                      <span className="middle-tag">{item.quantity} Center Piece{item.quantity > 1 ? "s" : ""}</span>
                     )}
                   </div>
                 </td>
-                <td className="text-center mono font-bold">{item.quantity}</td>
-                <td className="mono">{item.nominalDimension}</td>
-                <td className="mono actual-dim">{item.actualDimension}</td>
-                <td className="text-right mono font-bold text-cyan">
-                  {item.boardFeet.toFixed(2)}
+                <td className="text-center mono font-bold qty-cell">
+                  <span className="qty-badge">{item.quantity} pcs</span>
                 </td>
+                <td className="mono font-semibold cut-dim-cell">{item.actualDimension}</td>
               </tr>
             ))}
           </tbody>
@@ -259,12 +260,34 @@ export default function CutListTable({
           border-radius: 4px;
           border: 1px solid rgba(245, 158, 11, 0.3);
         }
-        .actual-dim {
-          color: #94a3b8;
+        .middle-tag {
+          font-size: 0.65rem;
+          background: rgba(6, 182, 212, 0.15);
+          color: #67e8f9;
+          padding: 2px 6px;
+          border-radius: 4px;
+          border: 1px solid rgba(6, 182, 212, 0.3);
+        }
+        .qty-cell {
+          vertical-align: middle;
+        }
+        .qty-badge {
+          display: inline-block;
+          padding: 3px 10px;
+          background: rgba(255, 255, 255, 0.08);
+          border: 1px solid rgba(255, 255, 255, 0.15);
+          border-radius: 6px;
+          color: #ffffff;
+          font-size: 0.85rem;
+        }
+        .cut-dim-cell {
+          color: #38bdf8;
+          font-size: 0.92rem;
+          letter-spacing: 0.02em;
         }
         .text-center { text-align: center; }
-        .text-right { text-align: right; }
         .font-bold { font-weight: 700; }
+        .font-semibold { font-weight: 600; }
         .text-cyan { color: var(--accent-cyan); }
         .text-amber { color: var(--accent-amber); }
         .text-emerald { color: var(--accent-emerald); }

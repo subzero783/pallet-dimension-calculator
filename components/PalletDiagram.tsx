@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { ICalculationResult } from "@/models/WorkOrder";
-import { Eye, Box, Layers, Maximize2 } from "lucide-react";
+import { Box, Layers, Shield } from "lucide-react";
 
 interface PalletDiagramProps {
   palletLength: number;
@@ -16,6 +16,7 @@ interface PalletDiagramProps {
   palletStyle: string;
   deckboardNominal: string;
   stringerNominal: string;
+  middleBoardCount?: 1 | 2;
 }
 
 export default function PalletDiagram({
@@ -30,16 +31,84 @@ export default function PalletDiagram({
   palletStyle,
   deckboardNominal,
   stringerNominal,
+  middleBoardCount: propMiddleBoardCount,
 }: PalletDiagramProps) {
   const [viewMode, setViewMode] = useState<"3d" | "top" | "side">("3d");
   const [showProduct, setShowProduct] = useState(true);
 
-  const stringerCount = calculationResult.stringerCount || 3;
-  const topDeckboardCount = calculationResult.topDeckboardCount || 7;
-  const actualSpacing = calculationResult.actualSpacing || 2.5;
+  const middleCount: 1 | 2 =
+    propMiddleBoardCount ??
+    (calculationResult.middleBoardCount === 2 ? 2 : 1);
 
-  // Visual helper calculations
-  const isSkid = palletStyle === "Heavy-Duty Skid";
+  // Total wood pieces in middle area between top and bottom lead:
+  // - 1 piece mode (Light): 1 left + 1 middle + 1 right = 3 wood pieces
+  // - 2 pieces mode (Heavy): 2 left + 2 middle + 2 right = 6 wood pieces (doubled side-by-side)
+  const totalMiddleAreaRunners = middleCount === 2 ? 6 : 3;
+  const topDeckboardCount = calculationResult.topDeckboardCount || 7;
+  const actualSpacing = calculationResult.actualSpacing ?? 3.0;
+
+  // Accurate Cumulative Stack Height:
+  // Bottom Lead Boards (0.75") + Middle Boards Height (3.5") + Top Lead Boards (0.75") + Product Height
+  const bottomLeadThickness = 0.75;
+  const middleBoardHeight = 3.5;
+  const topLeadThickness = 0.75;
+  const palletTotalH = Math.round((bottomLeadThickness + middleBoardHeight + topLeadThickness) * 10) / 10;
+  const cumulativeStackHeight = Math.round((palletTotalH + productHeight) * 10) / 10;
+
+  // 3D Isometric runner positions:
+  // When middleCount === 1: 3 pieces (left, center, right)
+  // When middleCount === 2: 6 pieces (2 left touching, 2 middle touching, 2 right touching)
+  const isoRunners =
+    middleCount === 2
+      ? [
+          { xOffset: 198, isMiddle: false, label: "Left Outer (1/2)" },
+          { xOffset: 222, isMiddle: false, label: "Left Outer (2/2)" },
+          { xOffset: 388, isMiddle: true, label: "Middle Wood (1/2)" },
+          { xOffset: 412, isMiddle: true, label: "Middle Wood (2/2)" },
+          { xOffset: 578, isMiddle: false, label: "Right Outer (1/2)" },
+          { xOffset: 602, isMiddle: false, label: "Right Outer (2/2)" },
+        ]
+      : [
+          { xOffset: 210, isMiddle: false, label: "Left Outer Runner" },
+          { xOffset: 400, isMiddle: true, label: "Middle Wood Piece" },
+          { xOffset: 590, isMiddle: false, label: "Right Outer Runner" },
+        ];
+
+  // Elevation Side runner blocks:
+  // When middleCount === 1: 3 blocks (x=160, 384, 608)
+  // When middleCount === 2: 6 blocks (pairs touching side-by-side)
+  const sideRunners =
+    middleCount === 2
+      ? [
+          { x: 152, width: 28, isMiddle: false, label: "L1" },
+          { x: 180, width: 28, isMiddle: false, label: "L2" },
+          { x: 372, width: 28, isMiddle: true, label: "M1" },
+          { x: 400, width: 28, isMiddle: true, label: "M2" },
+          { x: 592, width: 28, isMiddle: false, label: "R1" },
+          { x: 620, width: 28, isMiddle: false, label: "R2" },
+        ]
+      : [
+          { x: 160, width: 36, isMiddle: false, label: "Left" },
+          { x: 382, width: 36, isMiddle: true, label: "Middle" },
+          { x: 604, width: 36, isMiddle: false, label: "Right" },
+        ];
+
+  // Top CAD Blueprint runner positions:
+  const topRunners =
+    middleCount === 2
+      ? [
+          { y: 72, isMiddle: false, label: "Left Outer (1/2)" },
+          { y: 94, isMiddle: false, label: "Left Outer (2/2)" },
+          { y: 230, isMiddle: true, label: "Middle Wood (1/2)" },
+          { y: 252, isMiddle: true, label: "Middle Wood (2/2)" },
+          { y: 386, isMiddle: false, label: "Right Outer (1/2)" },
+          { y: 408, isMiddle: false, label: "Right Outer (2/2)" },
+        ]
+      : [
+          { y: 80, isMiddle: false, label: "Left Outer Runner" },
+          { y: 240, isMiddle: true, label: "Middle Wood Piece" },
+          { y: 400, isMiddle: false, label: "Right Outer Runner" },
+        ];
 
   return (
     <div className="diagram-card glass-panel">
@@ -51,7 +120,10 @@ export default function PalletDiagram({
             <span>Interactive Pallet CAD Visualizer</span>
           </div>
           <div className="diagram-subtitle">
-            Scale: {palletLength}" L × {palletWidth}" W × {palletHeight}" H • {stringerCount} Stringers
+            Pallet: {palletLength}" L × {palletWidth}" W × {palletTotalH}" H •{" "}
+            {middleCount === 2
+              ? "6 Wood Pieces Total (2 Middle + 4 Outer Doubled)"
+              : "3 Wood Pieces Total (1 Middle + 2 Outer)"}
           </div>
         </div>
 
@@ -59,7 +131,7 @@ export default function PalletDiagram({
           <button
             onClick={() => setShowProduct(!showProduct)}
             className={`btn-toggle ${showProduct ? "active" : ""}`}
-            title="Toggle Product Bounding Box"
+            title="Toggle Product CAD Bounding Box"
           >
             <Box size={14} />
             <span>Product CAD Box</span>
@@ -91,7 +163,7 @@ export default function PalletDiagram({
       {/* SVG Canvas Area */}
       <div className="svg-container">
         {viewMode === "3d" && (
-          <svg viewBox="0 0 800 480" className="cad-svg">
+          <svg viewBox="0 0 800 500" className="cad-svg">
             <defs>
               <linearGradient id="lumberGradient" x1="0%" y1="0%" x2="100%" y2="100%">
                 <stop offset="0%" stopColor="#d97706" />
@@ -102,6 +174,10 @@ export default function PalletDiagram({
                 <stop offset="0%" stopColor="#f59e0b" />
                 <stop offset="100%" stopColor="#d97706" />
               </linearGradient>
+              <linearGradient id="bottomLeadGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#b45309" />
+                <stop offset="100%" stopColor="#78350f" />
+              </linearGradient>
               <linearGradient id="stringerGradient" x1="0%" y1="0%" x2="0%" y2="100%">
                 <stop offset="0%" stopColor="#78350f" />
                 <stop offset="100%" stopColor="#451a03" />
@@ -110,37 +186,54 @@ export default function PalletDiagram({
                 <stop offset="0%" stopColor="rgba(6, 182, 212, 0.45)" />
                 <stop offset="100%" stopColor="rgba(2, 132, 199, 0.2)" />
               </linearGradient>
-              <filter id="dropShadow" x="-10%" y="-10%" width="130%" height="130%">
-                <feDropShadow dx="0" dy="12" stdDeviation="10" floodColor="#000000" floodOpacity="0.5" />
-              </filter>
             </defs>
 
-            {/* Base Shadow */}
-            <ellipse cx="400" cy="380" rx="260" ry="60" fill="rgba(0,0,0,0.4)" filter="blur(16px)" />
+            {/* Base Floor Shadow */}
+            <ellipse cx="400" cy="410" rx="270" ry="50" fill="rgba(0,0,0,0.5)" filter="blur(16px)" />
 
-            {/* Stringers Isometric (3D) */}
-            {Array.from({ length: stringerCount }).map((_, i) => {
-              const xOffset = 210 + i * (380 / Math.max(1, stringerCount - 1));
+            {/* 1. BOTTOM LEAD BOARDS (Visibly rendered at base of pallet underneath runners) */}
+            {/* Rear Bottom Lead Board */}
+            <g className="bottom-lead-rear">
+              <polygon
+                points="290,178 630,178 642,168 302,168"
+                fill="url(#bottomLeadGradient)"
+                stroke="#451a03"
+                strokeWidth="1"
+              />
+              <polygon
+                points="290,178 630,178 630,188 290,188"
+                fill="#542306"
+                stroke="#2e1002"
+                strokeWidth="1"
+              />
+            </g>
+
+            {/* 2. MIDDLE WOOD PIECES & OUTER RUNNERS (Sitting on bottom lead boards) */}
+            {/* When middleCount === 2, 6 wood pieces rendered as 3 doubled pairs touching side-by-side */}
+            {isoRunners.map((runner, i) => {
+              const xOffset = runner.xOffset;
+              const isMiddle = runner.isMiddle;
+
               return (
-                <g key={`stringer-${i}`} className="stringer-group">
-                  {/* Stringer Top */}
+                <g key={`runner-3d-${i}`} className={isMiddle ? "middle-wood-piece" : "outer-runner"}>
+                  {/* Runner Top */}
                   <polygon
-                    points={`${xOffset - 12},270 ${xOffset + 12},270 ${xOffset + 112},160 ${xOffset + 88},160`}
+                    points={`${xOffset - 10},270 ${xOffset + 10},270 ${xOffset + 102},170 ${xOffset + 82},170`}
                     fill="url(#stringerGradient)"
                     stroke="#451a03"
                     strokeWidth="1"
                   />
-                  {/* Stringer Front Face */}
+                  {/* Runner Front Face */}
                   <polygon
-                    points={`${xOffset - 12},270 ${xOffset + 12},270 ${xOffset + 12},310 ${xOffset - 12},310`}
-                    fill="#542306"
+                    points={`${xOffset - 10},270 ${xOffset + 10},270 ${xOffset + 10},310 ${xOffset - 10},310`}
+                    fill={isMiddle ? "#632707" : "#542306"}
                     stroke="#2e1002"
                     strokeWidth="1"
                   />
-                  {/* Stringer Side Face */}
+                  {/* Runner Side Face */}
                   <polygon
-                    points={`${xOffset + 12},270 ${xOffset + 112},160 ${xOffset + 112},200 ${xOffset + 12},310`}
-                    fill="#3b1604"
+                    points={`${xOffset + 10},270 ${xOffset + 102},170 ${xOffset + 102},210 ${xOffset + 10},310`}
+                    fill={isMiddle ? "#481b05" : "#3b1604"}
                     stroke="#2e1002"
                     strokeWidth="1"
                   />
@@ -148,58 +241,63 @@ export default function PalletDiagram({
               );
             })}
 
-            {/* Top Deckboards (Isometric) */}
+            {/* Front Bottom Lead Board (rendered at the base in front of runner feet) */}
+            <g className="bottom-lead-front">
+              <polygon
+                points="180,310 595,310 607,298 192,298"
+                fill="url(#bottomLeadGradient)"
+                stroke="#451a03"
+                strokeWidth="1"
+              />
+              <polygon
+                points="180,310 595,310 595,324 180,324"
+                fill="#542306"
+                stroke="#2e1002"
+                strokeWidth="1"
+              />
+              <polygon
+                points="595,310 607,298 607,312 595,324"
+                fill="#3b1604"
+                stroke="#2e1002"
+                strokeWidth="1"
+              />
+              <text x="390" y="321" fill="#fef08a" fontSize="10" fontWeight="bold" textAnchor="middle">
+                Bottom Lead Board (Base)
+              </text>
+            </g>
+
+            {/* 3. TOP LEAD & DECK BOARDS */}
             {Array.from({ length: topDeckboardCount }).map((_, i) => {
               const isLead = i === 0 || i === topDeckboardCount - 1;
-              const boardY = 264 - i * (110 / Math.max(1, topDeckboardCount - 1));
-              const boardXOffset = i * (100 / Math.max(1, topDeckboardCount - 1));
+              const boardY = 264 - i * (98 / Math.max(1, topDeckboardCount - 1));
 
               return (
-                <g key={`deck-${i}`} className="deckboard-group">
-                  {/* Board Top */}
+                <g key={`deck-3d-${i}`} className="deckboard-group">
                   <polygon
-                    points={`180,${boardY} 600,${boardY} 615,${boardY - 14} 195,${boardY - 14}`}
+                    points={`180,${boardY} 600,${boardY} 614,${boardY - 14} 194,${boardY - 14}`}
                     fill={isLead ? "url(#leadBoardGradient)" : "url(#lumberGradient)"}
                     stroke="#78350f"
                     strokeWidth="1"
                   />
-                  {/* Board Front */}
                   <polygon
                     points={`180,${boardY} 600,${boardY} 600,${boardY + 6} 180,${boardY + 6}`}
                     fill={isLead ? "#b45309" : "#78350f"}
                     stroke="#451a03"
                     strokeWidth="1"
                   />
-                  {/* Board Side */}
                   <polygon
-                    points={`600,${boardY} 615,${boardY - 14} 615,${boardY - 8} 600,${boardY + 6}`}
+                    points={`600,${boardY} 614,${boardY - 14} 614,${boardY - 8} 600,${boardY + 6}`}
                     fill="#542306"
                     stroke="#451a03"
                     strokeWidth="1"
                   />
-                  {/* Fastener markings */}
-                  {Array.from({ length: stringerCount }).map((_, sIdx) => {
-                    const nailX = 220 + sIdx * (360 / Math.max(1, stringerCount - 1));
-                    return (
-                      <circle
-                        key={`nail-${i}-${sIdx}`}
-                        cx={nailX}
-                        cy={boardY - 7}
-                        r="1.8"
-                        fill="#cbd5e1"
-                        stroke="#475569"
-                        strokeWidth="0.5"
-                      />
-                    );
-                  })}
                 </g>
               );
             })}
 
-            {/* CAD Product Bounding Box (Isometric 3D) */}
+            {/* 4. CAD PRODUCT */}
             {showProduct && (
               <g className="cad-product-group" opacity="0.95">
-                {/* Product Base Outline */}
                 <polygon
                   points="230,240 570,240 645,155 305,155"
                   fill="none"
@@ -207,46 +305,39 @@ export default function PalletDiagram({
                   strokeWidth="1.5"
                   strokeDasharray="4 3"
                 />
-                {/* Product Top */}
                 <polygon
-                  points="230,120 570,120 645,35 305,35"
+                  points="230,110 570,110 645,25 305,25"
                   fill="url(#productGlass)"
                   stroke="#38bdf8"
                   strokeWidth="2"
                 />
-                {/* Product Front Face */}
                 <polygon
-                  points="230,240 570,240 570,120 230,120"
+                  points="230,240 570,240 570,110 230,110"
                   fill="rgba(6, 182, 212, 0.2)"
                   stroke="#38bdf8"
                   strokeWidth="1.5"
                 />
-                {/* Product Right Face */}
                 <polygon
-                  points="570,240 645,155 645,35 570,120"
+                  points="570,240 645,155 645,25 570,110"
                   fill="rgba(2, 132, 199, 0.3)"
                   stroke="#38bdf8"
                   strokeWidth="1.5"
                 />
 
-                {/* Product Center Label */}
-                <rect x="340" y="150" width="160" height="32" rx="4" fill="rgba(15, 23, 42, 0.85)" stroke="#06b6d4" strokeWidth="1" />
-                <text x="420" y="171" fill="#ffffff" fontSize="12" fontWeight="700" textAnchor="middle">
+                <rect x="320" y="145" width="200" height="34" rx="5" fill="rgba(15, 23, 42, 0.9)" stroke="#06b6d4" strokeWidth="1" />
+                <text x="420" y="167" fill="#ffffff" fontSize="11" fontWeight="700" textAnchor="middle">
                   CAD PAYLOAD: {productWeight} lbs
                 </text>
               </g>
             )}
 
-            {/* Dimension Callout annotations */}
-            <g className="annotations">
-              <line x1="160" y1="268" x2="160" y2="150" stroke="#f59e0b" strokeWidth="1.5" markerEnd="url(#arrow)" />
-              <text x="135" y="215" fill="#f59e0b" fontSize="12" fontWeight="bold" transform="rotate(-90 135 215)">
-                L = {palletLength}"
-              </text>
-
-              <line x1="200" y1="330" x2="580" y2="330" stroke="#38bdf8" strokeWidth="1.5" />
-              <text x="390" y="348" fill="#38bdf8" fontSize="12" fontWeight="bold" textAnchor="middle">
-                W = {palletWidth}"
+            {/* Accurate Cumulative Stack Height Callout */}
+            <g className="height-callout">
+              <line x1="120" y1="324" x2="120" y2="110" stroke="#f59e0b" strokeWidth="2" strokeDasharray="4 2" />
+              <line x1="110" y1="324" x2="130" y2="324" stroke="#f59e0b" strokeWidth="2" />
+              <line x1="110" y1="110" x2="130" y2="110" stroke="#f59e0b" strokeWidth="2" />
+              <text x="95" y="220" fill="#f59e0b" fontSize="12" fontWeight="bold" textAnchor="middle" transform="rotate(-90 95 220)">
+                Cumulative Stack H: {cumulativeStackHeight}"
               </text>
             </g>
           </svg>
@@ -255,29 +346,34 @@ export default function PalletDiagram({
         {viewMode === "top" && (
           <svg viewBox="0 0 800 480" className="cad-svg">
             <defs>
-              <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+              <pattern id="cadGrid" width="20" height="20" patternUnits="userSpaceOnUse">
                 <path d="M 20 0 L 0 0 0 20" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
               </pattern>
             </defs>
-            <rect width="800" height="480" fill="url(#grid)" />
+            <rect width="800" height="480" fill="url(#cadGrid)" />
 
-            {/* Stringers Footprint Outline */}
-            {Array.from({ length: stringerCount }).map((_, i) => {
-              const y = 80 + i * (320 / Math.max(1, stringerCount - 1));
-              return (
+            {/* Bottom Lead Boards Footprints */}
+            <rect x="150" y="60" width="40" height="360" rx="2" fill="rgba(180, 83, 9, 0.2)" stroke="#b45309" strokeWidth="1.5" strokeDasharray="4 3" />
+            <rect x="610" y="60" width="40" height="360" rx="2" fill="rgba(180, 83, 9, 0.2)" stroke="#b45309" strokeWidth="1.5" strokeDasharray="4 3" />
+
+            {/* Runners / Wood Pieces Footprints */}
+            {topRunners.map((runner, i) => (
+              <g key={`top-runner-${i}`}>
                 <rect
-                  key={`top-str-${i}`}
                   x="150"
-                  y={y - 10}
+                  y={runner.y - 8}
                   width="500"
-                  height="20"
-                  fill="rgba(120, 53, 15, 0.3)"
-                  stroke="#b45309"
+                  height="16"
+                  fill={runner.isMiddle ? "rgba(6, 182, 212, 0.3)" : "rgba(120, 53, 15, 0.35)"}
+                  stroke={runner.isMiddle ? "#06b6d4" : "#b45309"}
                   strokeWidth="1.5"
                   strokeDasharray="6 4"
                 />
-              );
-            })}
+                <text x="400" y={runner.y + 4} fill={runner.isMiddle ? "#67e8f9" : "#cbd5e1"} fontSize="10" textAnchor="middle" fontWeight="bold">
+                  {runner.label}
+                </text>
+              </g>
+            ))}
 
             {/* Top Deckboards */}
             {Array.from({ length: topDeckboardCount }).map((_, i) => {
@@ -306,13 +402,13 @@ export default function PalletDiagram({
                     textAnchor="middle"
                     transform={`rotate(-90 ${x + boardW / 2} 245)`}
                   >
-                    {isLead ? "1x6 Lead" : `${deckboardNominal}`}
+                    {isLead ? "1x6 Lead Board" : "Top Deckboard"}
                   </text>
                 </g>
               );
             })}
 
-            {/* CAD Product Outline Centered */}
+            {/* CAD Product Outline */}
             {showProduct && (
               <rect
                 x="200"
@@ -327,75 +423,113 @@ export default function PalletDiagram({
               />
             )}
 
-            {/* Gap dimension callouts */}
             <text x="400" y="445" fill="#38bdf8" fontSize="13" fontWeight="bold" textAnchor="middle">
-              Deckboard Spacing Gap: {actualSpacing}" (Uniform Distribution)
+              Deckboard Gap: {actualSpacing}" {actualSpacing === 0 ? "(Omitted / Continuous)" : "Uniform Spacing"} • {totalMiddleAreaRunners} Total Wood Pieces in Middle Area
             </text>
           </svg>
         )}
 
         {viewMode === "side" && (
           <svg viewBox="0 0 800 480" className="cad-svg">
-            {/* Floor line */}
-            <line x1="80" y1="360" x2="720" y2="360" stroke="#64748b" strokeWidth="2" strokeDasharray="6 4" />
-            <text x="400" y="385" fill="#94a3b8" fontSize="12" textAnchor="middle">Warehouse Concrete Floor Elevation</text>
-
-            {/* Bottom Deckboards */}
-            {!isSkid && (
-              <rect x="150" y="340" width="500" height="16" fill="#b45309" stroke="#78350f" strokeWidth="1.5" />
-            )}
-
-            {/* Stringers Front Blocks */}
-            {Array.from({ length: stringerCount }).map((_, i) => {
-              const x = 160 + i * (440 / Math.max(1, stringerCount - 1));
-              return (
-                <g key={`side-str-${i}`}>
-                  <rect
-                    x={x}
-                    y="260"
-                    width="40"
-                    height="80"
-                    fill="#78350f"
-                    stroke="#451a03"
-                    strokeWidth="2"
-                  />
-                  <text x={x + 20} y="305" fill="#ffffff" fontSize="10" textAnchor="middle" fontWeight="bold">
-                    {stringerNominal}
-                  </text>
-                </g>
-              );
-            })}
-
-            {/* Top Deckboard Surface */}
-            <rect x="150" y="244" width="500" height="16" fill="#f59e0b" stroke="#b45309" strokeWidth="1.5" />
-
-            {/* Forklift Tunnels annotation */}
-            <text x="400" y="305" fill="#38bdf8" fontSize="12" fontWeight="bold" textAnchor="middle">
-              Forklift Entry Tunnels: Clearance {(palletWidth / (stringerCount - 1) - 3.5).toFixed(1)}" Wide
+            {/* Floor Line */}
+            <line x1="60" y1="380" x2="740" y2="380" stroke="#64748b" strokeWidth="2" strokeDasharray="6 4" />
+            <text x="400" y="405" fill="#94a3b8" fontSize="12" textAnchor="middle">
+              Warehouse Concrete Floor Level
             </text>
 
-            {/* Product sitting on top */}
+            {/* 1. BOTTOM LEAD BOARDS (Visibly rendered at base of pallet underneath middle boards) */}
+            <rect
+              x="140"
+              y="358"
+              width="520"
+              height="20"
+              rx="2"
+              fill="#b45309"
+              stroke="#78350f"
+              strokeWidth="2"
+            />
+            <text x="400" y="373" fill="#ffffff" fontSize="11" fontWeight="bold" textAnchor="middle">
+              Bottom Lead Boards (Base) — 0.75" Thickness
+            </text>
+
+            {/* 2. MIDDLE WOOD PIECES & OUTER RUNNERS (Rendered between bottom lead boards and top lead boards) */}
+            {/* When middleCount === 2: 6 wood pieces rendered in 3 sistered pairs right next to each other */}
+            {sideRunners.map((runner, i) => (
+              <g key={`side-runner-${i}`}>
+                <rect
+                  x={runner.x}
+                  y="278"
+                  width={runner.width}
+                  height="80"
+                  rx="2"
+                  fill={runner.isMiddle ? "#92400e" : "#78350f"}
+                  stroke={runner.isMiddle ? "#d97706" : "#451a03"}
+                  strokeWidth="2"
+                />
+                <text x={runner.x + runner.width / 2} y="322" fill="#ffffff" fontSize="10" textAnchor="middle" fontWeight="bold">
+                  {runner.label}
+                </text>
+              </g>
+            ))}
+
+            {/* 3. TOP LEAD & DECK BOARD SURFACE (Sitting on top of middle wood pieces/runners) */}
+            <rect
+              x="140"
+              y="258"
+              width="520"
+              height="20"
+              rx="2"
+              fill="#f59e0b"
+              stroke="#b45309"
+              strokeWidth="2"
+            />
+            <text x="400" y="272" fill="#000000" fontSize="11" fontWeight="bold" textAnchor="middle">
+              Top Lead & Deck Boards Surface — 0.75" Thickness
+            </text>
+
+            {/* 4. PRODUCT SITTING ON TOP */}
             {showProduct && (
               <g>
                 <rect
-                  x="200"
-                  y="100"
-                  width="400"
-                  height="144"
+                  x="180"
+                  y="120"
+                  width="440"
+                  height="138"
+                  rx="4"
                   fill="rgba(6, 182, 212, 0.2)"
                   stroke="#38bdf8"
                   strokeWidth="2"
                 />
-                <text x="400" y="175" fill="#ffffff" fontSize="14" fontWeight="bold" textAnchor="middle">
-                  CAD Product: {productHeight}" Height • {productWeight} lbs
+                <text x="400" y="180" fill="#ffffff" fontSize="14" fontWeight="bold" textAnchor="middle">
+                  CAD Product: {productHeight}" H • {productWeight} lbs
+                </text>
+                <text x="400" y="202" fill="#38bdf8" fontSize="11" textAnchor="middle">
+                  Payload Enclosure Footprint
                 </text>
               </g>
             )}
 
-            {/* Height Callout */}
-            <line x1="120" y1="244" x2="120" y2="356" stroke="#f59e0b" strokeWidth="2" />
-            <text x="95" y="305" fill="#f59e0b" fontSize="13" fontWeight="bold" textAnchor="middle">
-              {palletHeight}"
+            {/* 5. ACCURATE CUMULATIVE VERTICAL STACK DIMENSION CALLOUT */}
+            <g className="elevation-dimension-callouts">
+              <line x1="90" y1="258" x2="90" y2="378" stroke="#f59e0b" strokeWidth="2" />
+              <line x1="82" y1="258" x2="98" y2="258" stroke="#f59e0b" strokeWidth="2" />
+              <line x1="82" y1="378" x2="98" y2="378" stroke="#f59e0b" strokeWidth="2" />
+              <text x="68" y="322" fill="#f59e0b" fontSize="12" fontWeight="bold" textAnchor="middle">
+                {palletTotalH}" Pallet
+              </text>
+
+              <line x1="700" y1="120" x2="700" y2="378" stroke="#38bdf8" strokeWidth="2" />
+              <line x1="692" y1="120" x2="708" y2="120" stroke="#38bdf8" strokeWidth="2" />
+              <line x1="692" y1="378" x2="708" y2="378" stroke="#38bdf8" strokeWidth="2" />
+              <text x="715" y="254" fill="#38bdf8" fontSize="12" fontWeight="bold" textAnchor="start">
+                Total Stack: {cumulativeStackHeight}"
+              </text>
+            </g>
+
+            {/* Cumulative Formula Banner */}
+            <rect x="140" y="425" width="520" height="32" rx="6" fill="rgba(15, 23, 42, 0.85)" stroke="rgba(255,255,255,0.1)" />
+            <text x="400" y="446" fill="#cbd5e1" fontSize="11" textAnchor="middle">
+              Cumulative Stack = Bottom Lead (0.75") + Middle Wood (3.5") + Top Lead (0.75") + Product ({productHeight}") = <tspan fill="#f59e0b" fontWeight="bold">{cumulativeStackHeight}"</tspan>
             </text>
           </svg>
         )}
@@ -406,19 +540,27 @@ export default function PalletDiagram({
         <div className="legend-items">
           <div className="legend-item">
             <span className="legend-swatch amber"></span>
-            <span>1x6 Lead Deckboards (2x Front/Back)</span>
-          </div>
-          <div className="legend-item">
-            <span className="legend-swatch brown"></span>
-            <span>{deckboardNominal} Interior Deckboards ({actualSpacing}" uniform gap)</span>
-          </div>
-          <div className="legend-item">
-            <span className="legend-swatch dark-wood"></span>
-            <span>{stringerCount}x {stringerNominal} Stringers</span>
+            <span>Top Lead Boards (0.75" × 5.5")</span>
           </div>
           <div className="legend-item">
             <span className="legend-swatch cyan"></span>
-            <span>CAD Product Payload Enclosure</span>
+            <span>
+              {middleCount === 2
+                ? "2 Middle Wood Pieces (Very Middle Together)"
+                : "1 Middle Wood Piece (Center)"}
+            </span>
+          </div>
+          <div className="legend-item">
+            <span className="legend-swatch dark-wood"></span>
+            <span>
+              {middleCount === 2
+                ? "4 Outer Runners (2 Left Together + 2 Right Together)"
+                : "2 Outer Runners (1 Left + 1 Right)"}
+            </span>
+          </div>
+          <div className="legend-item">
+            <span className="legend-swatch brown"></span>
+            <span>Bottom Lead Boards (Base)</span>
           </div>
         </div>
       </div>
@@ -501,7 +643,7 @@ export default function PalletDiagram({
         }
         .svg-container {
           width: 100%;
-          min-height: 380px;
+          min-height: 400px;
           background: #060a12;
           border: 1px solid rgba(255, 255, 255, 0.07);
           border-radius: var(--radius-md);
@@ -514,7 +656,7 @@ export default function PalletDiagram({
         .cad-svg {
           width: 100%;
           height: 100%;
-          max-height: 440px;
+          max-height: 460px;
         }
         .diagram-footer {
           padding-top: 8px;
