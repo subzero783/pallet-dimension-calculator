@@ -24,6 +24,7 @@ export interface CalculatorState {
     targetMaxGap: number;
     boardGap: number;
     middleBoardCount: 1 | 2;
+    bottomBoardCount: number;
   };
   calculationResult: ICalculationResult;
   notes: string;
@@ -44,11 +45,12 @@ const initialPalletConfig: CalculatorState["palletConfig"] = {
   palletStyle: "2-Way Stringer (Flush)",
   lengthAllowance: 2.0,
   widthAllowance: 2.0,
-  deckboardNominal: "1x4",
+  deckboardNominal: "1x6",
   stringerNominal: "2x4",
   targetMaxGap: 3.0,
   boardGap: 3.0,
   middleBoardCount: 1,
+  bottomBoardCount: 2,
 };
 
 const initialResult = calculatePallet({
@@ -64,6 +66,7 @@ const initialResult = calculatePallet({
   targetMaxGap: initialPalletConfig.targetMaxGap,
   boardGap: initialPalletConfig.boardGap,
   middleBoardCount: initialPalletConfig.middleBoardCount,
+  bottomBoardCount: initialPalletConfig.bottomBoardCount,
 });
 
 // Clear initial text input values (empty strings with placeholders only)
@@ -98,6 +101,7 @@ function performCalculation(state: CalculatorState) {
     targetMaxGap: state.palletConfig.targetMaxGap,
     boardGap: state.palletConfig.boardGap,
     middleBoardCount: state.palletConfig.middleBoardCount,
+    bottomBoardCount: state.palletConfig.bottomBoardCount,
   });
 }
 
@@ -161,6 +165,7 @@ export const calculatorSlice = createSlice({
         deckboard?: "1x4" | "1x6";
         stringer?: "2x4" | "4x4";
         middleBoardCount?: 1 | 2;
+        bottomBoardCount?: number;
         boardGap?: number;
       }>
     ) => {
@@ -178,6 +183,7 @@ export const calculatorSlice = createSlice({
       if (action.payload.deckboard) state.palletConfig.deckboardNominal = action.payload.deckboard;
       if (action.payload.stringer) state.palletConfig.stringerNominal = action.payload.stringer;
       if (action.payload.middleBoardCount) state.palletConfig.middleBoardCount = action.payload.middleBoardCount;
+      if (action.payload.bottomBoardCount) state.palletConfig.bottomBoardCount = action.payload.bottomBoardCount;
       if (action.payload.boardGap !== undefined) {
         state.palletConfig.boardGap = action.payload.boardGap;
         state.palletConfig.targetMaxGap = action.payload.boardGap;
@@ -206,6 +212,7 @@ export const calculatorSlice = createSlice({
           ...wo.palletConfig,
           boardGap: wo.palletConfig.boardGap ?? wo.palletConfig.targetMaxGap ?? 3.0,
           middleBoardCount: wo.palletConfig.middleBoardCount ?? 1,
+          bottomBoardCount: wo.palletConfig.bottomBoardCount ?? 2,
         };
       }
       state.notes = wo.notes || "";

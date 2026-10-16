@@ -45,7 +45,7 @@ export default function PalletDiagram({
   // - 2 pieces mode (Heavy): 2 left + 2 middle + 2 right = 6 wood pieces (doubled side-by-side)
   const totalMiddleAreaRunners = middleCount === 2 ? 6 : 3;
   const topDeckboardCount = calculationResult.topDeckboardCount || 8;
-  const bottomDeckboardCount = calculationResult.bottomDeckboardCount || topDeckboardCount;
+  const bottomDeckboardCount = calculationResult.bottomDeckboardCount ?? 2;
   const actualSpacing = calculationResult.actualSpacing ?? 3.0;
 
   // Accurate Cumulative Stack Height:
@@ -136,22 +136,12 @@ export default function PalletDiagram({
     return { index: i, t0, t1 };
   });
 
-  const numBot = Math.max(1, bottomDeckboardCount);
-  const gapBot =
-    numBot > 1
-      ? Math.max(0, (palletLength - numBot * boardNominalWidth) / (numBot - 1))
-      : 0;
-
+  // Bottom Boards (Uniform Base Deck): 2 to 5 boards, spaced out evenly from front to rear
+  const numBot = Math.min(5, Math.max(2, bottomDeckboardCount));
   const botBoards3D = Array.from({ length: numBot }).map((_, i) => {
-    let startInch = i * (boardNominalWidth + gapBot);
-    let endInch = startInch + boardNominalWidth;
-    if (numBot === 1) {
-      startInch = 0;
-      endInch = palletLength;
-    } else if (i === numBot - 1) {
-      endInch = palletLength;
-      startInch = Math.max(0, palletLength - boardNominalWidth);
-    }
+    const stepInch = (palletLength - boardNominalWidth) / (numBot - 1);
+    const startInch = i * stepInch;
+    const endInch = startInch + boardNominalWidth;
     const t0 = Math.min(1, Math.max(0, startInch / Math.max(1, palletLength)));
     const t1 = Math.min(1, Math.max(t0 + 0.005, endInch / Math.max(1, palletLength)));
     return { index: i, t0, t1 };
@@ -534,31 +524,40 @@ export default function PalletDiagram({
               </text>
             </g>
 
-            {/* Bottom Boards Footprints (Dotted outlines underneath) */}
+            {/* Bottom Boards Footprints (Dotted outlines underneath, evenly spaced across base) */}
             {(() => {
-              const totalBot = Math.max(2, bottomDeckboardCount);
+              const totalBot = Math.min(5, Math.max(2, bottomDeckboardCount));
               const availableW = 500;
-              const isOmitted = actualSpacing <= 0;
-              const boardInches = deckboardNominal === "1x6" ? 5.5 : 3.5;
-              const scale = availableW / palletLength;
-              const boardW = isOmitted ? availableW / totalBot : Math.max(16, Math.min(48, boardInches * scale));
-              const step = isOmitted ? boardW : (availableW - boardW) / Math.max(1, totalBot - 1);
+              const scale = availableW / Math.max(1, palletLength);
+              const boardW = Math.max(16, Math.min(48, boardNominalWidth * scale));
+              const step = (availableW - boardW) / (totalBot - 1);
 
               return Array.from({ length: totalBot }).map((_, i) => {
-                const x = isOmitted ? 150 + i * boardW : 150 + i * step;
+                const x = 150 + i * step;
                 return (
-                  <rect
-                    key={`bot-fp-${i}`}
-                    x={x}
-                    y="70"
-                    width={boardW}
-                    height="340"
-                    rx="2"
-                    fill="rgba(180, 83, 9, 0.12)"
-                    stroke="#b45309"
-                    strokeWidth="1.2"
-                    strokeDasharray="4 3"
-                  />
+                  <g key={`bot-fp-${i}`} className="bottom-board-footprint">
+                    <rect
+                      x={x}
+                      y="70"
+                      width={boardW}
+                      height="340"
+                      rx="2"
+                      fill="rgba(180, 83, 9, 0.16)"
+                      stroke="#b45309"
+                      strokeWidth="1.5"
+                      strokeDasharray="5 3"
+                    />
+                    <text
+                      x={x + boardW / 2}
+                      y="402"
+                      fill="#d97706"
+                      fontSize="9"
+                      fontWeight="bold"
+                      textAnchor="middle"
+                    >
+                      B{i + 1}
+                    </text>
+                  </g>
                 );
               });
             })()}
@@ -678,11 +677,11 @@ export default function PalletDiagram({
             )}
 
             {/* Blueprint Status & Spacing Legend */}
-            <text x="400" y="445" fill="#38bdf8" fontSize="12" fontWeight="bold" textAnchor="middle">
-              Deckboard Gap: {actualSpacing}" {actualSpacing === 0 ? "(Omitted / Flush Continuous)" : "Uniform Spacing"} • {totalMiddleAreaRunners} Middle Wood Pieces ({middleCount === 2 ? "Doubled Side-by-Side Flush" : "Standard"})
+            <text x="400" y="445" fill="#38bdf8" fontSize="11.5" fontWeight="bold" textAnchor="middle">
+              Top Deck: {topDeckboardCount} Boards ({deckboardNominal} • {boardNominalWidth}" Actual Width) • Actual Gap: {actualSpacing}" {actualSpacing === 0 ? "(Omitted / Flush)" : `(Target: ${calculationResult.boardGap || 3.0}")`} • {bottomDeckboardCount} Bottom Base Boards
             </text>
             <text x="400" y="468" fill="#94a3b8" fontSize="10.5" textAnchor="middle">
-              Overall Pallet: {palletLength}" L × {palletWidth}" W × {palletTotalH}" H • Clearance: +{clearanceLength}" Length / +{clearanceWidth}" Width (Per Side)
+              Length Breakdown: {topDeckboardCount} Boards × {boardNominalWidth}" ({Math.round(topDeckboardCount * boardNominalWidth * 10) / 10}") + {Math.max(0, topDeckboardCount - 1)} Gaps × {actualSpacing}" ({Math.round(Math.max(0, topDeckboardCount - 1) * actualSpacing * 10) / 10}") = {palletLength}" Pallet Length
             </text>
           </svg>
         )}
@@ -833,7 +832,7 @@ export default function PalletDiagram({
           </div>
           <div className="legend-item">
             <span className="legend-swatch brown"></span>
-            <span>Bottom Boards (Base Deck)</span>
+            <span>Bottom Boards ({bottomDeckboardCount} Base Deck Boards Evenly Distributed)</span>
           </div>
         </div>
       </div>

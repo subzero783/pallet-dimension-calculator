@@ -134,5 +134,77 @@ describe("Pallet Engine Calculations", () => {
       expect(result.palletDimensions.width).toBe(38);
       expect(result.actualSpacing).toBe(0);
     });
+
+    it("defaults to 2 bottom boards (Uniform Base Deck) when unspecified", () => {
+      const result = calculatePallet({
+        productLength: 46,
+        productWidth: 38,
+        productHeight: 30,
+        productWeight: 800,
+      });
+
+      expect(result.bottomDeckboardCount).toBe(2);
+      expect(result.bottomBoardCount).toBe(2);
+      const bottomItem = result.cutList.find((i) => i.name === "Bottom Boards");
+      expect(bottomItem?.quantity).toBe(2);
+    });
+
+    it("allows user to choose 2 to 5 bottom boards and clamps within range", () => {
+      for (const count of [2, 3, 4, 5]) {
+        const result = calculatePallet({
+          productLength: 46,
+          productWidth: 38,
+          productHeight: 30,
+          productWeight: 800,
+          bottomBoardCount: count,
+        });
+        expect(result.bottomDeckboardCount).toBe(count);
+        const bottomItem = result.cutList.find((i) => i.name === "Bottom Boards");
+        expect(bottomItem?.quantity).toBe(count);
+      }
+
+      // Clamping: < 2 becomes 2, > 5 becomes 5
+      const clampLow = calculatePallet({
+        productLength: 46,
+        productWidth: 38,
+        productHeight: 30,
+        productWeight: 800,
+        bottomBoardCount: 1,
+      });
+      expect(clampLow.bottomDeckboardCount).toBe(2);
+
+      const clampHigh = calculatePallet({
+        productLength: 46,
+        productWidth: 38,
+        productHeight: 30,
+        productWeight: 800,
+        bottomBoardCount: 8,
+      });
+      expect(clampHigh.bottomDeckboardCount).toBe(5);
+    });
+
+    it("defaults to 1x6 deckboard spec and calculates 8 boards for 76-inch product + 2-inch allowance with 5-inch gap", () => {
+      // 76 + (2 * 2) = 80 inch pallet length
+      const result = calculatePallet({
+        productLength: 76,
+        productWidth: 38,
+        productHeight: 30,
+        productWeight: 1000,
+        lengthAllowance: 2.0,
+        boardGap: 5.0,
+      });
+
+      expect(result.palletDimensions.length).toBe(80);
+      // Defaults to 1x6 (5.5" actual width)
+      expect(result.deckboardActualWidth).toBe(5.5);
+      // 8 top boards (not 9) best matching the 5.0" gap
+      expect(result.topDeckboardCount).toBe(8);
+      // 8 boards * 5.5 = 44" wood. 7 gaps: (80 - 44) / 7 = 5.14" actual gap
+      expect(result.actualSpacing).toBe(5.14);
+      // Verification: 8 * 5.5 + 7 * 5.14 = 44 + 35.98 ≈ 80"
+      const totalWood = result.topDeckboardCount * 5.5;
+      const totalGaps = (result.topDeckboardCount - 1) * result.actualSpacing;
+      expect(Math.round(totalWood + totalGaps)).toBe(80);
+    });
   });
 });

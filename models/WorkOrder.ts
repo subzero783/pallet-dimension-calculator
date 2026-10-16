@@ -26,8 +26,11 @@ export interface ICalculationResult {
   bottomDeckboardCount: number;
   stringerCount: number;
   actualSpacing: number;
+  bottomSpacing?: number;
   middleBoardCount?: number;
+  bottomBoardCount?: number;
   boardGap?: number;
+  deckboardActualWidth?: number;
 }
 
 export interface IWorkOrder extends Document {
@@ -52,6 +55,7 @@ export interface IWorkOrder extends Document {
     targetMaxGap: number;
     boardGap?: number;
     middleBoardCount?: number;
+    bottomBoardCount?: number;
   };
   calculationResult: ICalculationResult;
   notes?: string;
@@ -114,11 +118,12 @@ const WorkOrderSchema = new Schema<IWorkOrder>(
       palletStyle: { type: String, required: true, default: "2-Way Stringer (Flush)" },
       lengthAllowance: { type: Number, required: true, default: 4.0 },
       widthAllowance: { type: Number, required: true, default: 4.0 },
-      deckboardNominal: { type: String, required: true, default: "1x4" },
+      deckboardNominal: { type: String, required: true, default: "1x6" },
       stringerNominal: { type: String, required: true, default: "2x4" },
       targetMaxGap: { type: Number, required: true, default: 3.0 },
       boardGap: { type: Number, default: 3.0 },
       middleBoardCount: { type: Number, default: 1 },
+      bottomBoardCount: { type: Number, default: 2 },
     },
     calculationResult: {
       palletDimensions: {
@@ -135,6 +140,8 @@ const WorkOrderSchema = new Schema<IWorkOrder>(
       bottomDeckboardCount: { type: Number, required: true },
       stringerCount: { type: Number, required: true },
       actualSpacing: { type: Number, required: true },
+      bottomSpacing: { type: Number },
+      bottomBoardCount: { type: Number },
     },
     notes: { type: String, default: "" },
     status: {

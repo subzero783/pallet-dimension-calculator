@@ -66,6 +66,12 @@ export default function PalletCalculator({ isCompanyPage = false }: PalletCalcul
     dispatch(setPalletConfig({ middleBoardCount: count }));
   };
 
+  // Bottom boards (Uniform Base Deck): 2 to 5 boards, default 2
+  const currentBottomCount = palletConfig.bottomBoardCount ?? 2;
+  const handleBottomBoardsChange = (count: number) => {
+    dispatch(setPalletConfig({ bottomBoardCount: count }));
+  };
+
   // Gap between boards: 3 to 5 inches OR 0 (omitted)
   const currentGap = palletConfig.boardGap ?? palletConfig.targetMaxGap ?? 3.0;
   const isGapOmitted = currentGap === 0;
@@ -128,6 +134,15 @@ export default function PalletCalculator({ isCompanyPage = false }: PalletCalcul
       setIsSaving(false);
     }
   };
+
+  // Verified dimensions for top deckboard spacing & breakdown:
+  const palletLength = calculationResult.palletDimensions.length;
+  const topBoardCount = calculationResult.topDeckboardCount;
+  const actualGap = calculationResult.actualSpacing;
+  const boardActualWidth = palletConfig.deckboardNominal === "1x6" ? 5.5 : 3.5;
+  const totalWoodLength = Math.round(topBoardCount * boardActualWidth * 10) / 10;
+  const totalGapsCount = Math.max(0, topBoardCount - 1);
+  const totalGapLength = Math.round(totalGapsCount * actualGap * 10) / 10;
 
   return (
     <div className="calc-page-container">
@@ -359,8 +374,8 @@ export default function PalletCalculator({ isCompanyPage = false }: PalletCalcul
                   value={palletConfig.deckboardNominal}
                   onChange={(e) => handleConfigChange("deckboardNominal", e.target.value)}
                 >
-                  <option value="1x4">Nominal 1x4 (0.75" × 3.5")</option>
-                  <option value="1x6">Nominal 1x6 (0.75" × 5.5")</option>
+                  <option value="1x6">Nominal 1x6 (Actual 0.75" × 5.5") — Standard Default</option>
+                  <option value="1x4">Nominal 1x4 (Actual 0.75" × 3.5")</option>
                 </select>
               </div>
 
@@ -381,23 +396,6 @@ export default function PalletCalculator({ isCompanyPage = false }: PalletCalcul
             <div className="config-grid mt-2">
               <div className="form-group">
                 <div className="label-with-val">
-                  <label className="form-label">Length Allowance</label>
-                  <span className="hint-tag">Default 2"</span>
-                </div>
-                <div className="input-unit-wrapper">
-                  <input
-                    type="number"
-                    step="0.5"
-                    className="form-input mono"
-                    value={palletConfig.lengthAllowance}
-                    onChange={(e) => handleConfigChange("lengthAllowance", parseFloat(e.target.value) || 0)}
-                  />
-                  <span className="unit-label">in</span>
-                </div>
-              </div>
-
-              <div className="form-group">
-                <div className="label-with-val">
                   <label className="form-label">Width Allowance</label>
                   <span className="hint-tag">Default 2"</span>
                 </div>
@@ -408,6 +406,23 @@ export default function PalletCalculator({ isCompanyPage = false }: PalletCalcul
                     className="form-input mono"
                     value={palletConfig.widthAllowance}
                     onChange={(e) => handleConfigChange("widthAllowance", parseFloat(e.target.value) || 0)}
+                  />
+                  <span className="unit-label">in</span>
+                </div>
+              </div>
+
+              <div className="form-group">
+                <div className="label-with-val">
+                  <label className="form-label">Length Allowance</label>
+                  <span className="hint-tag">Default 2"</span>
+                </div>
+                <div className="input-unit-wrapper">
+                  <input
+                    type="number"
+                    step="0.5"
+                    className="form-input mono"
+                    value={palletConfig.lengthAllowance}
+                    onChange={(e) => handleConfigChange("lengthAllowance", parseFloat(e.target.value) || 0)}
                   />
                   <span className="unit-label">in</span>
                 </div>
@@ -445,14 +460,47 @@ export default function PalletCalculator({ isCompanyPage = false }: PalletCalcul
               </div>
             </div>
 
+            {/* Bottom Boards (Uniform Base Deck): 2 to 5 boards (default 2) */}
+            <div className="form-group mt-3">
+              <div className="label-with-val">
+                <label className="form-label">Bottom Boards (Uniform Base Deck)</label>
+                <span className="val-preview mono text-cyan">
+                  {currentBottomCount} Boards {currentBottomCount === 2 ? "(Default)" : ""}
+                </span>
+              </div>
+              <p className="field-desc">
+                Select 2 to 5 bottom base boards. Boards are distributed evenly across the pallet base in 3D and 2D.
+              </p>
+              <div className="bottom-boards-segmented">
+                {[2, 3, 4, 5].map((count) => (
+                  <button
+                    key={count}
+                    type="button"
+                    onClick={() => handleBottomBoardsChange(count)}
+                    className={`bottom-segment-btn ${currentBottomCount === count ? "active" : ""}`}
+                  >
+                    <div className="bottom-count-num">{count}</div>
+                    <div className="bottom-count-label">
+                      {count === 2 ? "2 Boards (Default)" : `${count} Boards`}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Gap Between Boards (Default 3", Range 3" - 5" OR Omit Gap) */}
             <div className="form-group mt-3">
               <div className="label-with-val">
-                <label className="form-label">Gap Between Boards</label>
-                <span className="val-preview mono">
-                  {isGapOmitted ? "Omitted (0\")" : `${currentGap.toFixed(2)}"`}
+                <label className="form-label">Gap Between Boards (Top Deck)</label>
+                <span className="val-preview mono text-cyan">
+                  {isGapOmitted
+                    ? "0\" (Gap Omitted • Solid Flush)"
+                    : `Actual Gap: ${actualGap.toFixed(2)}" (Target: ${currentGap.toFixed(2)}")`}
                 </span>
               </div>
+              <p className="field-desc">
+                Adjust desired gap. The engine calculates the exact number of boards and spaces them out evenly so wood plus gaps sum exactly to the final pallet length.
+              </p>
               <div className="gap-control-row">
                 <button
                   type="button"
@@ -474,12 +522,93 @@ export default function PalletCalculator({ isCompanyPage = false }: PalletCalcul
                       onChange={(e) => handleGapChange(parseFloat(e.target.value))}
                     />
                     <div className="slider-hints">
-                      <span>3.0" (Default)</span>
-                      <span>4.0"</span>
-                      <span>5.0" (Max)</span>
+                      <button
+                        type="button"
+                        onClick={() => handleGapChange(3.0)}
+                        className={`hint-btn ${currentGap === 3.0 ? "active" : ""}`}
+                      >
+                        3.0" (Standard)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleGapChange(3.5)}
+                        className={`hint-btn ${currentGap === 3.5 ? "active" : ""}`}
+                      >
+                        3.5"
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleGapChange(4.0)}
+                        className={`hint-btn ${currentGap === 4.0 ? "active" : ""}`}
+                      >
+                        4.0"
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleGapChange(4.5)}
+                        className={`hint-btn ${currentGap === 4.5 ? "active" : ""}`}
+                      >
+                        4.5"
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleGapChange(5.0)}
+                        className={`hint-btn ${currentGap === 5.0 ? "active" : ""}`}
+                      >
+                        5.0" (Wide)
+                      </button>
                     </div>
                   </div>
                 )}
+              </div>
+
+              {/* Engineering Spacing & Dimension Verification Breakdown */}
+              <div className="gap-breakdown-card">
+                <div className="breakdown-header">
+                  <div className="breakdown-badge">
+                    <span className="badge-dot"></span>
+                    <span>{topBoardCount} Top Boards ({palletConfig.deckboardNominal})</span>
+                  </div>
+                  <div className="breakdown-pallet-dim mono">
+                    Total Pallet Length: <strong>{palletLength.toFixed(1)}"</strong>
+                  </div>
+                </div>
+
+                {!isGapOmitted ? (
+                  <div className="breakdown-details">
+                    <div className="breakdown-line">
+                      <span className="line-lbl">Wood Coverage:</span>
+                      <span className="line-val mono">
+                        {topBoardCount} boards × {boardActualWidth}" actual width = <strong>{totalWoodLength.toFixed(1)}"</strong>
+                      </span>
+                    </div>
+                    <div className="breakdown-line">
+                      <span className="line-lbl">Actual Gap Spacing:</span>
+                      <span className="line-val mono">
+                        {totalGapsCount} gaps × {actualGap.toFixed(2)}" actual gap = <strong>{totalGapLength.toFixed(1)}"</strong>
+                      </span>
+                    </div>
+                    <div className="breakdown-line sum-line">
+                      <span className="line-lbl">Exact Verification Sum:</span>
+                      <span className="line-val mono text-cyan font-bold">
+                        {totalWoodLength.toFixed(1)}" (wood) + {totalGapLength.toFixed(1)}" (gaps) = {palletLength.toFixed(1)}"
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="breakdown-details">
+                    <div className="breakdown-line">
+                      <span className="line-lbl">Solid Continuous Deck:</span>
+                      <span className="line-val mono">
+                        {topBoardCount} boards × {boardActualWidth}" width = <strong>{totalWoodLength.toFixed(1)}"</strong> (0" gap continuous)
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                <div className="breakdown-origin">
+                  Pallet Length Origin: {cadDimensions.length}" Product Length + (2 × {palletConfig.lengthAllowance}" Length Allowance) = {palletLength.toFixed(1)}"
+                </div>
               </div>
             </div>
           </div>
@@ -722,6 +851,54 @@ export default function PalletCalculator({ isCompanyPage = false }: PalletCalcul
           margin-top: 2px;
           line-height: 1.3;
         }
+        .bottom-boards-segmented {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 8px;
+        }
+        .bottom-segment-btn {
+          padding: 10px 6px;
+          background: rgba(255, 255, 255, 0.04);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-sm);
+          text-align: center;
+          cursor: pointer;
+          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 2px;
+        }
+        .bottom-segment-btn:hover {
+          background: rgba(255, 255, 255, 0.08);
+          border-color: rgba(6, 182, 212, 0.4);
+          transform: translateY(-1px);
+        }
+        .bottom-segment-btn.active {
+          background: rgba(6, 182, 212, 0.16);
+          border-color: var(--accent-cyan);
+          box-shadow: 0 0 12px rgba(6, 182, 212, 0.25);
+        }
+        .bottom-count-num {
+          font-size: 1.15rem;
+          font-weight: 800;
+          font-family: var(--font-mono);
+          color: #cbd5e1;
+          line-height: 1;
+        }
+        .bottom-segment-btn.active .bottom-count-num {
+          color: #67e8f9;
+        }
+        .bottom-count-label {
+          font-size: 0.65rem;
+          font-weight: 600;
+          color: var(--text-muted);
+          white-space: nowrap;
+        }
+        .bottom-segment-btn.active .bottom-count-label {
+          color: #a5f3fc;
+        }
         .gap-control-row {
           display: flex;
           align-items: center;
@@ -761,6 +938,93 @@ export default function PalletCalculator({ isCompanyPage = false }: PalletCalcul
           justify-content: space-between;
           font-size: 0.68rem;
           color: var(--text-muted);
+        }
+        .hint-btn {
+          background: transparent;
+          border: none;
+          color: var(--text-muted);
+          font-size: 0.68rem;
+          font-weight: 600;
+          cursor: pointer;
+          padding: 2px 5px;
+          border-radius: 4px;
+          transition: all 0.15s;
+        }
+        .hint-btn:hover {
+          color: #ffffff;
+          background: rgba(255, 255, 255, 0.08);
+        }
+        .hint-btn.active {
+          color: var(--accent-cyan);
+          background: rgba(6, 182, 212, 0.16);
+          font-weight: 700;
+        }
+        .gap-breakdown-card {
+          margin-top: 10px;
+          padding: 12px 14px;
+          background: rgba(15, 23, 42, 0.65);
+          border: 1px solid rgba(6, 182, 212, 0.25);
+          border-radius: var(--radius-sm);
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+        .breakdown-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          flex-wrap: wrap;
+          gap: 6px;
+        }
+        .breakdown-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 0.76rem;
+          font-weight: 700;
+          color: var(--accent-cyan);
+          background: rgba(6, 182, 212, 0.12);
+          padding: 2px 8px;
+          border-radius: 4px;
+        }
+        .badge-dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: var(--accent-cyan);
+        }
+        .breakdown-pallet-dim {
+          font-size: 0.78rem;
+          color: #e2e8f0;
+        }
+        .breakdown-details {
+          display: flex;
+          flex-direction: column;
+          gap: 5px;
+          background: rgba(0, 0, 0, 0.25);
+          padding: 8px 10px;
+          border-radius: 4px;
+        }
+        .breakdown-line {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          font-size: 0.74rem;
+          color: #94a3b8;
+          gap: 8px;
+        }
+        .breakdown-line strong {
+          color: #ffffff;
+        }
+        .breakdown-line.sum-line {
+          margin-top: 4px;
+          padding-top: 6px;
+          border-top: 1px dashed rgba(255, 255, 255, 0.12);
+        }
+        .breakdown-origin {
+          font-size: 0.68rem;
+          color: var(--text-muted);
+          font-style: italic;
         }
         .notes-textarea {
           resize: vertical;

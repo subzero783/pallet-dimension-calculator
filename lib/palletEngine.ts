@@ -13,6 +13,7 @@ export interface PalletInputParams {
   targetMaxGap?: number; // default 3.0" (0 means omitted)
   boardGap?: number; // default 3.0" (0 means omitted)
   middleBoardCount?: 1 | 2; // default 1
+  bottomBoardCount?: number; // 2 to 5 boards (default 2)
   overhangDistance?: number; // default 1.5" if overhang style
 }
 
@@ -93,9 +94,9 @@ export function determineStringerCount(palletWidth: number, weight: number): num
 export function calculateDeckboardLayout(
   palletLength: number,
   targetMaxGap: number = 3.0,
-  deckboardNominal: "1x4" | "1x6" = "1x4"
+  deckboardNominal: "1x4" | "1x6" = "1x6"
 ) {
-  const spec = LUMBER_SPECS[deckboardNominal] || LUMBER_SPECS["1x4"];
+  const spec = LUMBER_SPECS[deckboardNominal] || LUMBER_SPECS["1x6"];
   const boardWidth = spec.actualWidth; // 3.5" or 5.5"
 
   if (palletLength <= boardWidth) {
@@ -114,11 +115,18 @@ export function calculateDeckboardLayout(
     };
   }
 
-  // With N boards, there are N - 1 gaps between the outer front and rear edge boards.
-  // Spacing = (palletLength - N * boardWidth) / (N - 1) <= targetMaxGap
-  // => N >= (palletLength - targetMaxGap) / (boardWidth + targetMaxGap) + 1
-  const minN = Math.ceil((palletLength - targetMaxGap) / (boardWidth + targetMaxGap)) + 1;
-  const totalBoards = Math.max(2, minN);
+  // Pallet length = N * boardWidth + (N - 1) * gap
+  // => N * (boardWidth + gap) = palletLength + gap
+  // => Ideal N = (palletLength + gap) / (boardWidth + gap)
+  // Round to the closest whole board count to best honor the user's chosen gap
+  const idealN = (palletLength + targetMaxGap) / (boardWidth + targetMaxGap);
+  let totalBoards = Math.max(2, Math.round(idealN));
+
+  // If totalBoards * boardWidth exceeds palletLength, clamp totalBoards
+  if (totalBoards * boardWidth > palletLength) {
+    totalBoards = Math.max(2, Math.floor(palletLength / boardWidth));
+  }
+
   const numberOfGaps = totalBoards - 1;
   const actualGap =
     numberOfGaps > 0
@@ -143,15 +151,17 @@ export function calculatePallet(input: PalletInputParams): ICalculationResult {
     palletStyle = "2-Way Stringer (Flush)",
     lengthAllowance = 2.0,
     widthAllowance = 2.0,
-    deckboardNominal = "1x4",
+    deckboardNominal = "1x6",
     stringerNominal = "2x4",
     targetMaxGap,
     boardGap,
     middleBoardCount = 1,
+    bottomBoardCount = 2,
   } = input;
 
   const effectiveGap = boardGap !== undefined ? boardGap : (targetMaxGap !== undefined ? targetMaxGap : 3.0);
   const validatedMiddleCount: 1 | 2 = middleBoardCount === 2 ? 2 : 1;
+  const validatedBottomCount = Math.min(5, Math.max(2, Math.round(Number(bottomBoardCount) || 2)));
 
   // 1. Overall Pallet Dimensions
   // Length and Width allowances are applied to both sides of the pallet:
@@ -170,9 +180,16 @@ export function calculatePallet(input: PalletInputParams): ICalculationResult {
   const middleStringerCount = validatedMiddleCount === 2 ? 2 : 1;
   const totalStringerCount = outerStringerCount + middleStringerCount; // 3 or 6 pieces
 
-  // Uniform deckboard layouts for top and bottom boards
+  // Uniform deckboard layouts:
+  // Top boards are distributed based on board gap (3" to 5" or 0)
   const topLayout = calculateDeckboardLayout(palletLength, effectiveGap, deckboardNominal);
-  const bottomLayout = calculateDeckboardLayout(palletLength, effectiveGap, deckboardNominal);
+
+  // Bottom boards (Uniform Base Deck): 2 to 5 boards (default 2), spaced out evenly across base
+  const botBoardWidth = deckboardSpec.actualWidth;
+  const botGaps = validatedBottomCount - 1;
+  const bottomActualGap = botGaps > 0
+    ? Math.max(0, Math.round(((palletLength - validatedBottomCount * botBoardWidth) / botGaps) * 100) / 100)
+    : 0;
 
   // Heights:
   // Stringer/runner height: 3.5" (for 2x4 standard upright)
@@ -227,16 +244,16 @@ export function calculatePallet(input: PalletInputParams): ICalculationResult {
     boardFeet: runnerBF,
   });
 
-  // 3. Bottom Boards
+  // 3. Bottom Boards (Uniform Base Deck)
   const bottomBF = calculateBoardFeet(
     deckboardSpec.nominalThickness,
     deckboardSpec.nominalWidth,
     deckboardLength,
-    bottomLayout.totalBoards
+    validatedBottomCount
   );
   cutList.push({
     name: "Bottom Boards",
-    quantity: bottomLayout.totalBoards,
+    quantity: validatedBottomCount,
     nominalDimension: `${deckboardSpec.nominal} x ${deckboardLength}"`,
     actualDimension: `${deckboardSpec.actualThickness}" x ${deckboardSpec.actualWidth}" x ${deckboardLength}"`,
     thickness: deckboardSpec.actualThickness,
@@ -250,7 +267,7 @@ export function calculatePallet(input: PalletInputParams): ICalculationResult {
     Math.round(cutList.reduce((acc, item) => acc + item.boardFeet, 0) * 100) / 100;
 
   // Fastener calculations: 3 nails per deckboard-runner junction
-  const totalDeckboards = topLayout.totalBoards + bottomLayout.totalBoards;
+  const totalDeckboards = topLayout.totalBoards + validatedBottomCount;
   const fastenersCount = totalDeckboards * totalStringerCount * 3;
 
   // Estimated Tare Weight
@@ -276,10 +293,13 @@ export function calculatePallet(input: PalletInputParams): ICalculationResult {
     maxSafeLoad,
     fastenersCount,
     topDeckboardCount: topLayout.totalBoards,
-    bottomDeckboardCount: bottomLayout.totalBoards,
+    bottomDeckboardCount: validatedBottomCount,
     stringerCount: totalStringerCount,
     actualSpacing: topLayout.actualGap,
+    bottomSpacing: bottomActualGap,
     middleBoardCount: validatedMiddleCount,
+    bottomBoardCount: validatedBottomCount,
     boardGap: effectiveGap,
+    deckboardActualWidth: deckboardSpec.actualWidth,
   };
 }
