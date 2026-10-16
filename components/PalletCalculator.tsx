@@ -366,30 +366,16 @@ export default function PalletCalculator({ isCompanyPage = false }: PalletCalcul
               </select>
             </div>
 
-            <div className="config-grid">
-              <div className="form-group">
-                <label className="form-label">Top Deckboard Spec</label>
-                <select
-                  className="form-select"
-                  value={palletConfig.deckboardNominal}
-                  onChange={(e) => handleConfigChange("deckboardNominal", e.target.value)}
-                >
-                  <option value="1x6">Nominal 1x6 (Actual 0.75" × 5.5") — Standard Default</option>
-                  <option value="1x4">Nominal 1x4 (Actual 0.75" × 3.5")</option>
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Stringer / Runner Spec</label>
-                <select
-                  className="form-select"
-                  value={palletConfig.stringerNominal}
-                  onChange={(e) => handleConfigChange("stringerNominal", e.target.value)}
-                >
-                  <option value="2x4">Nominal 2x4 (1.5" × 3.5")</option>
-                  <option value="4x4">Nominal 4x4 (3.5" × 3.5" Heavy Timber)</option>
-                </select>
-              </div>
+            <div className="form-group">
+              <label className="form-label">Top Deckboard Spec</label>
+              <select
+                className="form-select"
+                value={palletConfig.deckboardNominal}
+                onChange={(e) => handleConfigChange("deckboardNominal", e.target.value)}
+              >
+                <option value="1x6">Nominal 1x6 (Actual 0.75" × 5.5") — Standard Default</option>
+                <option value="1x4">Nominal 1x4 (Actual 0.75" × 3.5")</option>
+              </select>
             </div>
 
             {/* Clearance Allowances (Default 2" Length & Width) */}
